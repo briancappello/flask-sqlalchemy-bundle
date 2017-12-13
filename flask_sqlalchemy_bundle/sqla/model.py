@@ -1,10 +1,10 @@
 from flask import current_app
+from flask_application_factory import pluralize, title_case
 from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.local import LocalProxy
 
 from .mixins import PrimaryKeyMixin, TimestampMixin
-from .utils import pluralize, title_case
 
 db = LocalProxy(lambda: current_app.extensions['sqlalchemy'].db)
 

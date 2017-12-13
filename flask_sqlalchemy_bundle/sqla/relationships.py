@@ -1,9 +1,8 @@
-from flask_sqlalchemy.model import Model
+from flask_sqlalchemy.model import Model, camel_to_snake_case
 from sqlalchemy.schema import ForeignKey
 
 from .column import Column
 from .types import BigInteger
-from .utils import camel_to_snake_case
 
 
 # RELATIONSHIP DOCS
