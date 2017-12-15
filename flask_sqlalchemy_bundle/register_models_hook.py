@@ -24,7 +24,7 @@ class RegisterModelsHook(FactoryHook):
             return False
         return issubclass(obj, BaseModel) and obj != BaseModel
 
-    def register_shell_context(self, ctx: dict):
+    def update_shell_context(self, ctx: dict):
         ctx.update(self.models)
 
     def configure_migrations(self, app):
