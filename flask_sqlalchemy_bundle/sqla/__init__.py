@@ -6,20 +6,12 @@ from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 from .column import Column
 from .events import attach_events, on, slugify
 from .mixins import PrimaryKeyMixin, TimestampMixin
-from .model import BaseModel, Model
+from .model import BaseModel
 from .relationships import foreign_key
 from .types import BigInteger, DateTime
 
 
-__all__ = [
-    'BaseModel', 'Model',
-    'foreign_key',
-    'BigInteger', 'DateTime',
-]
-
-
 # a bit of hackery to make type-hinting in PyCharm work correctly
-
 from sqlalchemy.orm.relationships import RelationshipProperty
 class _relationship_type_hinter_(RelationshipProperty):
     # implement __call__ to silence PyCharm's "not callable" warning
