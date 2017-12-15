@@ -40,7 +40,7 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
 
     @declared_attr
     def __plural_label__(self):
-        return pluralize(self.__label__)
+        return title_case(pluralize(self.__name__))
 
     @classmethod
     def all(cls):
