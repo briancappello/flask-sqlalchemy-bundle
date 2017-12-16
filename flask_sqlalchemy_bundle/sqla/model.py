@@ -1,5 +1,5 @@
 from flask import current_app
-from flask_application_factory import pluralize, title_case
+from flask_unchained import pluralize, title_case
 from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.local import LocalProxy

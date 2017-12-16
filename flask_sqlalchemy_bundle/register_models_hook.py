@@ -1,22 +1,19 @@
 import inspect
 import os
 
-from flask import Flask
-from flask_application_factory import FactoryHook
+from flask_unchained import AppFactoryHook, FlaskUnchained
 
 from .sqla.model import BaseModel
 
 
-class RegisterModelsHook(FactoryHook):
+class RegisterModelsHook(AppFactoryHook):
     priority = 25
     bundle_module_name = 'models'
-    models = {}
 
-    def process_objects(self, app: Flask, app_config_cls, objects):
+    def process_objects(self, app: FlaskUnchained, app_config_cls, objects):
         for name, model_class in objects:
-            self.models[name] = model_class
+            app.unchained.models[name] = model_class
 
-        setattr(app, 'models', self.models)
         self.configure_migrations(app)
 
     def type_check(self, obj):
@@ -24,8 +21,8 @@ class RegisterModelsHook(FactoryHook):
             return False
         return issubclass(obj, BaseModel) and obj != BaseModel
 
-    def update_shell_context(self, ctx: dict):
-        ctx.update(self.models)
+    def update_shell_context(self, app: FlaskUnchained, ctx: dict):
+        ctx.update(app.unchained.models)
 
     def configure_migrations(self, app):
         alembic = app.config.get('ALEMBIC', {})
