@@ -19,8 +19,5 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
 
 EXTENSIONS = {
     'db': db,
-}
-
-DEFERRED_EXTENSIONS = {
     'alembic': (alembic, ['db']),
 }

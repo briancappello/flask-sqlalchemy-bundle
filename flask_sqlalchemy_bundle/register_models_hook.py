@@ -2,7 +2,7 @@ import inspect
 import os
 
 from flask import Flask
-from flask_unchained import AppFactoryHook, unchained
+from flask_unchained import AppFactoryHook
 
 from .sqla.model import BaseModel
 
@@ -13,7 +13,7 @@ class RegisterModelsHook(AppFactoryHook):
 
     def process_objects(self, app: Flask, app_config_cls, objects):
         for name, model_class in objects:
-            unchained.models[name] = model_class
+            self.store.models[name] = model_class
 
         self.configure_migrations(app)
 
@@ -23,7 +23,7 @@ class RegisterModelsHook(AppFactoryHook):
         return issubclass(obj, BaseModel) and obj != BaseModel
 
     def update_shell_context(self, app: Flask, ctx: dict):
-        ctx.update(unchained.models)
+        ctx.update(self.store.models)
 
     def configure_migrations(self, app):
         alembic = app.config.get('ALEMBIC', {})
