@@ -8,10 +8,11 @@ from .sqla.model import BaseModel
 
 
 class RegisterModelsHook(AppFactoryHook):
-    priority = 25
+    name = 'models'
+    priority = 10
     bundle_module_name = 'models'
 
-    def process_objects(self, app: Flask, app_config_cls, objects):
+    def process_objects(self, app: Flask, objects):
         for name, model_class in objects:
             self.store.models[name] = model_class
 
@@ -22,7 +23,7 @@ class RegisterModelsHook(AppFactoryHook):
             return False
         return issubclass(obj, BaseModel) and obj != BaseModel
 
-    def update_shell_context(self, app: Flask, ctx: dict):
+    def update_shell_context(self, ctx: dict):
         ctx.update(self.store.models)
 
     def configure_migrations(self, app):

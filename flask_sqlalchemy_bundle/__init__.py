@@ -7,6 +7,7 @@ from .sqlalchemy_bundle_store import SQLAlchemyBundleStore
 
 
 class FlaskSQLAlchemyBundle(Bundle):
-    name = 'db'
+    name = 'flask_sqlalchemy_bundle'
+    command_group_names = ['db']
     hooks = [RegisterModelsHook]
-    store = SQLAlchemyBundleStore()
+    store = SQLAlchemyBundleStore

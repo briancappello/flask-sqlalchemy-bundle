@@ -5,7 +5,7 @@ from .sqla_extension import SQLAlchemy
 
 
 alembic = Alembic(
-    command_name=None,  # use AppFactory to register the commands instead
+    command_name=None,  # use Unchained to register the commands instead
 )
 
 db = SQLAlchemy(metadata=MetaData(naming_convention={
@@ -18,6 +18,6 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
 
 
 EXTENSIONS = {
-    'db': db,
     'alembic': (alembic, ['db']),
+    'db': db,
 }
