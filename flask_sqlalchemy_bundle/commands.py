@@ -1,9 +1,10 @@
 import click
 
-from flask_alembic.cli.click import cli as db
+from alembic import command as alembic
+from flask_migrate.cli import db
 from flask.cli import with_appcontext
 
-from .extensions import alembic, db as db_ext
+from .extensions import migrate, db as db_ext
 
 
 @db.command('drop')
@@ -39,6 +40,6 @@ def reset_command(reset):
     drop_all()
 
     click.echo('Running DB migrations.')
-    alembic.upgrade()
+    alembic.upgrade(migrate.get_config(None), 'head')
 
     click.echo('Done.')

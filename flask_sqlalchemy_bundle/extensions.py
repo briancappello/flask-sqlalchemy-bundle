@@ -1,12 +1,8 @@
-from flask_alembic import Alembic
 from sqlalchemy import MetaData
 
+from .migrate_extension import Migrate
 from .sqla_extension import SQLAlchemy
 
-
-alembic = Alembic(
-    command_name=None,  # use Unchained to register the commands instead
-)
 
 db = SQLAlchemy(metadata=MetaData(naming_convention={
     'ix': 'ix_%(column_0_label)s',
@@ -16,8 +12,10 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
     'pk': 'pk_%(table_name)s',
 }))
 
+migrate = Migrate(db=db)
+
 
 EXTENSIONS = {
-    'alembic': (alembic, ['db']),
+    'migrate': (migrate, ['db']),
     'db': db,
 }
