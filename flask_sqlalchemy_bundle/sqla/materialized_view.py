@@ -32,6 +32,10 @@ def _create_materialized_view(name, selectable, db):
     db.event.listen(db.metadata, 'before_drop',
                     db.DDL(f'DROP MATERIALIZED VIEW IF EXISTS {name}'))
 
+    # to support auto-generated migrations
+    db.metadata.info.setdefault('materialized_views', set()).add((name, selectable))
+    db.metadata.info.setdefault('materialized_tables', {})[name] = table
+
     return table
 
 

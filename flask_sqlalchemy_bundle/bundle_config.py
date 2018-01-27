@@ -12,6 +12,7 @@ class BaseConfig:
 
     ALEMBIC_CONTEXT = {
         'render_item': render_migration_item,
+        'template_args': {'migration_variables': []},
     }
 
 class DevConfig(BaseConfig):
