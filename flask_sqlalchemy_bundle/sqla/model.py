@@ -4,12 +4,10 @@ from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.local import LocalProxy
 
-from .mixins import TimestampMixin
-
 db = LocalProxy(lambda: current_app.extensions['sqlalchemy'].db)
 
 
-class BaseModel(TimestampMixin, FlaskSQLAlchemyBaseModel):
+class BaseModel(FlaskSQLAlchemyBaseModel):
     """Base table class. It includes convenience methods for creating,
     querying, saving, updating and deleting models.
     """

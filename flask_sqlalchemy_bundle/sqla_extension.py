@@ -9,15 +9,20 @@ class SQLAlchemy(BaseSQLAlchemy):
         super().__init__(app, use_native_unicode, session_options,
                          metadata, query_class, model_class)
 
-        self.BaseModel = self.make_declarative_base(sqla.BaseModel, metadata)
+        self._BaseModel = self.make_declarative_base(sqla.BaseModel, metadata)
         self.PrimaryKeyMixin = sqla.PrimaryKeyMixin
         self.TimestampMixin = sqla.TimestampMixin
+
+        class BaseModel(self.TimestampMixin, self._BaseModel):
+            __abstract__ = True
+            __table_args__ = {'extend_existing': True}
+            __repr_props__ = ('created_at', 'updated_at')
+        self.BaseModel = BaseModel
 
         class Model(self.PrimaryKeyMixin, self.BaseModel):
             __abstract__ = True
             __table_args__ = {'extend_existing': True}
             __repr_props__ = ('id', 'created_at', 'updated_at')
-
         self.Model = Model
 
         self.Column = sqla.Column
