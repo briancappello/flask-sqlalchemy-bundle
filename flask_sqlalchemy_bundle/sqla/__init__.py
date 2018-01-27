@@ -5,6 +5,9 @@ from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 
 from .column import Column
 from .events import attach_events, on, slugify
+from .materialized_view import (_create_materialized_view,
+                                _refresh_materialized_view,
+                                _refresh_all_materialized_views)
 from .mixins import PrimaryKeyMixin, TimestampMixin
 from .model import BaseModel
 from .relationships import foreign_key
