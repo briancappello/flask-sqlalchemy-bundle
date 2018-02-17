@@ -1,7 +1,7 @@
 from sqlalchemy import MetaData
 
-from .migrate_extension import Migrate
-from .sqla_extension import SQLAlchemy
+from .migrate import Migrate
+from .sqlalchemy import SQLAlchemy
 
 
 db = SQLAlchemy(metadata=MetaData(naming_convention={

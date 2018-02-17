@@ -1,7 +1,7 @@
 from functools import partial
 from flask_sqlalchemy import SQLAlchemy as BaseSQLAlchemy, BaseQuery
 
-from . import sqla
+from .. import sqla
 
 
 class SQLAlchemy(BaseSQLAlchemy):
@@ -40,6 +40,18 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.on = sqla.on
         self.slugify = sqla.slugify
 
+        self.include_materialized_view()
+
+        # a bit of hackery to make type-hinting in PyCharm work better
+        if False:
+            self.Column = sqla._column_type_hinter_
+            self.backref = sqla._relationship_type_hinter_
+            self.relationship = sqla._relationship_type_hinter_
+            self.create_materialized_view = sqla._create_materialized_view
+            self.refresh_materialized_view = sqla._refresh_materialized_view
+            self.refresh_all_materialized_views = sqla._refresh_all_materialized_views
+
+    def include_materialized_view(self):
         # inject the database extension to prevent circular imports
         self.create_materialized_view = \
             partial(sqla._create_materialized_view, db=self)
@@ -57,16 +69,6 @@ class SQLAlchemy(BaseSQLAlchemy):
 
             @classmethod
             def refresh(cls, concurrently=True):
-                # NOTE: self here is the instance of the SQLAlchemy extension
                 self.refresh_materialized_view(cls.__tablename__, concurrently)
 
         self.MaterializedView = MaterializedView
-
-        # a bit of hackery to make type-hinting in PyCharm work better
-        if False:
-            self.Column = sqla._column_type_hinter_
-            self.backref = sqla._relationship_type_hinter_
-            self.relationship = sqla._relationship_type_hinter_
-            self.create_materialized_view = sqla._create_materialized_view
-            self.refresh_materialized_view = sqla._refresh_materialized_view
-            self.refresh_all_materialized_views = sqla._refresh_all_materialized_views
