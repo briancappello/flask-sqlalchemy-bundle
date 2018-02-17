@@ -10,6 +10,10 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = 'sqlite://'  # :memory:
 
+    ALEMBIC = {
+        'script_location': 'db/migrations',
+    }
+
     ALEMBIC_CONTEXT = {
         'render_item': render_migration_item,
         'template_args': {'migration_variables': []},
