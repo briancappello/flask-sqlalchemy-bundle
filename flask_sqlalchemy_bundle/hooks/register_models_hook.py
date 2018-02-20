@@ -4,7 +4,7 @@ import os
 from flask import Flask
 from flask_unchained import AppFactoryHook
 
-from .sqla.model import BaseModel
+from ..sqla.model import BaseModel
 
 
 class RegisterModelsHook(AppFactoryHook):
