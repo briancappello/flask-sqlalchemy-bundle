@@ -10,21 +10,17 @@ class SQLAlchemy(BaseSQLAlchemy):
         super().__init__(app, use_native_unicode, session_options,
                          metadata, query_class, model_class)
 
-        self._BaseModel = self.make_declarative_base(sqla.BaseModel, metadata)
-        self.PrimaryKeyMixin = sqla.PrimaryKeyMixin
-        self.TimestampMixin = sqla.TimestampMixin
+        self.BaseModel = self.make_declarative_base(sqla.BaseModel, metadata)
 
-        class BaseModel(self.TimestampMixin, self._BaseModel):
+        class Model(sqla.TimestampMixin, self.BaseModel):
             __abstract__ = True
-            __table_args__ = {'extend_existing': True}
             __repr_props__ = ('created_at', 'updated_at')
-        self.BaseModel = BaseModel
-
-        class Model(self.PrimaryKeyMixin, self.BaseModel):
-            __abstract__ = True
-            __table_args__ = {'extend_existing': True}
-            __repr_props__ = ('id', 'created_at', 'updated_at')
         self.Model = Model
+
+        class PrimaryKeyModel(sqla.PrimaryKeyMixin, self.Model):
+            __abstract__ = True
+            __repr_props__ = ('id', 'created_at', 'updated_at')
+        self.PrimaryKeyModel = PrimaryKeyModel
 
         self.Column = sqla.Column
         self.BigInteger = sqla.BigInteger
@@ -60,7 +56,7 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.refresh_all_materialized_views = \
             partial(sqla._refresh_all_materialized_views, db=self)
 
-        class MaterializedView(self._BaseModel):
+        class MaterializedView(self.BaseModel):
             __abstract__ = True
 
             @sqla.declared_attr

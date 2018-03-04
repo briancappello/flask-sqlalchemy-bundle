@@ -1,10 +1,10 @@
 import inspect
-import os
 
 from flask import Flask
 from flask_unchained import AppFactoryHook
+from typing import *
 
-from ..sqla.model import BaseModel
+from ..extensions import db
 
 
 class RegisterModelsHook(AppFactoryHook):
@@ -12,25 +12,21 @@ class RegisterModelsHook(AppFactoryHook):
     priority = 10
     bundle_module_name = 'models'
 
-    def process_objects(self, app: Flask, objects):
-        for name, model_class in objects:
-            self.store.models[name] = model_class
+    _limit_discovery_to_bundle_superclasses = True
+    _limit_discovery_to_local_declarations = False
 
-        self.configure_migrations(app)
+    def process_objects(self, app: Flask, models: Dict[str, Type[db.BaseModel]]):
+        self.store.models = models
 
-    def type_check(self, obj):
+    def type_check(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
             return False
-        return issubclass(obj, BaseModel) and obj != BaseModel
+        return issubclass(obj, db.BaseModel) and obj not in {
+            db.BaseModel,
+            db.Model,
+            db.PrimaryKeyModel,
+            db.MaterializedView,
+        }
 
     def update_shell_context(self, ctx: dict):
         ctx.update(self.store.models)
-
-    def configure_migrations(self, app):
-        alembic = app.config.get('ALEMBIC', {})
-
-        if not alembic.get('script_location'):
-            alembic['script_location'] = os.path.join(
-                app.config['PROJECT_ROOT'], 'db', 'migrations')
-
-        app.config.from_mapping({'ALEMBIC': alembic})
