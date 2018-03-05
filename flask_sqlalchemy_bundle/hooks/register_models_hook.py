@@ -29,6 +29,7 @@ class RegisterModelsHook(AppFactoryHook):
             db.Model,
             db.PrimaryKeyModel,
             db.MaterializedView,
+            db.PolymorphicModel,
         }
 
     def update_shell_context(self, ctx: dict):
