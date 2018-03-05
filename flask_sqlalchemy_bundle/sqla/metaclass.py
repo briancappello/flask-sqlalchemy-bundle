@@ -1,5 +1,21 @@
+"""
+This code defers the registration of (some) model classes with SQLAlchemy.
+This allows for an external process to decide which model classes it wants
+the Mapper to know about. In effect this makes it possible for a vendor
+bundle subclass (or the user's app bundle) to extend or override models from
+other bundles by defining a new model with the same name. In order for this to
+work, a model must declare itself extendable and/or overridable::
+
+    class SomeModel(db.PrimaryKeyModel):
+        class Meta:
+            lazy_mapping = True
+
+        # ... (everything else is the same as normal)
+"""
+import warnings
 from collections import defaultdict
 from flask_sqlalchemy.model import DefaultMeta
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm.interfaces import MapperProperty
@@ -14,131 +30,148 @@ def _normalize_model_meta(meta):
 
 
 class ModelMeta(DefaultMeta):
-    """
-    This code defers the registration of (some) model classes with SQLAlchemy.
-    This allows for an external process (namely, RegisterModelsHook) to decide
-    which model classes it wants the Mapper to know about. In effect this makes
-    it possible for a vendor bundle subclass (or the user's app bundle) to
-    override models found in other bundles(*) by defining a new model with the
-    same class name.
-    (*) a model must declare itself extendable and/or overridable::
-
-        class SomeModel(db.PrimaryKeyModel):
-            class Meta:
-                lazy_mapping = True
-
-            # ... (everything else is the same as normal)
-    """
     def __new__(mcs, name, bases, clsdict):
         if '__abstract__' in clsdict:
             return super().__new__(mcs, name, bases, clsdict)
 
-        if name in _ModelRegistry._registry:
-            bases = _ModelRegistry.convert_bases_to_mixins(bases)
-
-        meta = clsdict.pop('Meta', None)
-        clsdict['_meta'] = _normalize_model_meta(meta)
-
-        _ModelRegistry.register_new(mcs, name, bases, clsdict)
-
+        bases = _model_registry.contribute_to_class(name, bases, clsdict)
+        _model_registry.register_new(mcs, name, bases, clsdict)
         return super().__new__(mcs, name, bases, clsdict)
 
     def __init__(cls, name, bases, clsdict):
         is_concrete = '__abstract__' not in clsdict
         is_lazy = is_concrete and cls._meta.lazy_mapping
-        if not is_concrete or not is_lazy:
-            if is_concrete:
-                print('initializing', name)
+        if not is_lazy:
             super().__init__(name, bases, clsdict)
-
         if is_concrete:
-
-            for k, v in clsdict.items():
-                if isinstance(v, RelationshipProperty):
-                    print('!!!!!!!! rel!!', name, k, v.argument)
-
-            _ModelRegistry.register(cls, name, bases, clsdict)
-            if not is_lazy:
-                _ModelRegistry._initialized[name] = cls
+            _model_registry.register(cls, name, bases, clsdict, is_lazy)
 
 
 class _ModelRegistry:
-    # all discovered models "classes", before type.__new__ has been called:
-    # - keyed by model class name
-    # - values are lists of tuples of (model_mcs, name, bases, clsdict)
-    # - order of keys signifies discovery order at import time
-    # - order of list items signifies inheritance order (earlier tuples are base
-    #   classes; last tuple is the subclass that will end up getting created)
-    _registry = defaultdict(list)
+    def __init__(self):
+        # all discovered models "classes", before type.__new__ has been called:
+        # - keyed by model class name
+        # - order of keys signifies model class discovery order at import time
+        # - values are a lookup of:
+        #   - keys: module name of this particular model class
+        #   - values: tuple of (model_mcs, name, bases, clsdict)
+        # this dict is used for inspecting base classes when __new__ is
+        # called on a model class that extends another of the same name
+        self._registry = defaultdict(dict)
 
-    # actual model classes awaiting initialization (after type.__new__ but
-    # before type.__init__):
-    # - keyed by model class name
-    # - values are tuples of (model_cls, name, bases, clsdict)
-    _models = {}
+        # actual model classes awaiting initialization (after type.__new__ but
+        # before type.__init__):
+        # - keyed by model class name
+        # - values are tuples of (model_cls, name, bases, clsdict)
+        # this lookup contains the knowledge of which version of a model class
+        # should maybe get mapped (ModelMeta populates this lookup via the
+        # register method - insertion order of the correct version of a model
+        # class by name is therefore determined by the import order of bundles'
+        # models modules)
+        self._models = {}
 
-    _relationships = defaultdict(dict)
+        # like self._models, except its values are the relationships each model
+        # class name expects on the other side
+        # - keyed by model class name
+        # - values are a dict:
+        #   - keyed by the model name on the other side
+        #   - value is the attribute expected to exist
+        self._relationships = {}
 
-    # which keys in _models have already been initialized
-    _initialized = {}
+        # which keys in self._models have already been initialized
+        self._initialized = set()
 
-    @classmethod
-    def register_new(cls, model_mcs, name, bases, clsdict):
-        cls._registry[name].append((model_mcs, name, bases, clsdict))
+    def _reset(self):
+        self._registry = defaultdict(dict)
+        self._models = {}
+        self._relationships = {}
+        self._initialized = set()
 
-    @classmethod
-    def register(cls, model_cls, name, bases, clsdict):
-        cls._models[name] = (model_cls, name, bases, clsdict)
+    def register_new(self, model_mcs, name, bases, clsdict):
+        self._registry[name][clsdict['__module__']] = \
+            (model_mcs, name, bases, clsdict)
+
+    def register(self, model_cls, name, bases, clsdict, is_lazy):
+        self._models[name] = (model_cls, name, bases, clsdict)
+        if not is_lazy:
+            self._initialized.add(name)
+
         relationships = model_cls._meta.relationships
         if relationships:
-            cls._relationships[name] = relationships
+            self._relationships[name] = relationships
 
-    @classmethod
-    def finish_initializing(cls):
+    def finalize_mappings(self):
         # this outer loop is used to perform initializations in the order the
         # classes were originally discovered (ie at import time)
-        for name in cls._registry:
-            if cls.should_initialize(name):
-                model_cls, name, bases, clsdict = cls._models[name]
-                print('delayed initializing', name)
+        for name in self._registry:
+            if self.should_initialize(name):
+                model_cls, name, bases, clsdict = self._models[name]
                 super(ModelMeta, model_cls).__init__(name, bases, clsdict)
-                cls._initialized[name] = model_cls
-        return cls._initialized
+                self._initialized.add(name)
+        return {name: self._models[name][0] for name in self._initialized}
 
-    @classmethod
-    def should_initialize(cls, model_name):
-        if model_name in cls._initialized:
+    def should_initialize(self, model_name):
+        if model_name in self._initialized:
             return False
 
-        if model_name not in cls._relationships:
+        if model_name not in self._relationships:
             return True
 
-        for related_model_name in cls._relationships[model_name]:
-            related_model = cls._models[related_model_name][0]
+        with warnings.catch_warnings():
+            # not all related classes will have been initialized yet, ie they
+            # might still be non-mapped from SQLAlchemy's perspective, which is
+            # safe to ignore here
+            filter_re = r'Unmanaged access of declarative attribute \w+ from ' \
+                        r'non-mapped class \w+'
+            warnings.filterwarnings('ignore', filter_re, SAWarning)
 
-            other_side = cls._relationships[related_model_name].values()
-            for related_attr in other_side:
+            for related_model_name in self._relationships[model_name]:
+                related_model = self._models[related_model_name][0]
+
+                other_side_relationships = self._relationships[related_model_name]
+                if model_name not in other_side_relationships:
+                    continue
+                related_attr = other_side_relationships[model_name]
                 if hasattr(related_model, related_attr):
                     return True
 
-    @classmethod
-    def convert_bases_to_mixins(cls, bases):
+    def contribute_to_class(self, name, bases, clsdict):
+        meta = _normalize_model_meta(clsdict.pop('Meta', None))
+
+        discovered_relationships = {}
+        for base in bases:
+            for k, v in vars(base).items():
+                if isinstance(v, RelationshipProperty):
+                    discovered_relationships[v.argument] = k
+        for k, v in clsdict.items():
+            if isinstance(v, RelationshipProperty):
+                discovered_relationships[v.argument] = k
+
+        meta.relationships.update(discovered_relationships)
+        clsdict['_meta'] = meta
+
+        if name in _model_registry._registry:
+            bases = self._convert_bases_to_mixins(bases)
+        return bases
+
+    def _convert_bases_to_mixins(self, bases):
         """
-        For each base class in bases that the _ModelRegistry knows about, create a
-        replacement class containing the methods and attributes from the base class:
+        For each base class in bases that the _ModelRegistry knows about, create
+        a replacement class containing the methods and attributes from the base
+        class:
          - the mixin should only extend object (not db.PrimaryKeyModel)
-         - if any of the attributes are MapperProperty instances (eg relationship,
-           association_proxy, etc), then turn them into @declared_attr properties
+         - if any of the attributes are MapperProperty instances (relationship,
+           association_proxy, etc), then turn them into @declared_attr props
         """
         new_bases = []
 
         for b in reversed(bases):
-            if b.__name__ not in cls._registry:
+            if b.__name__ not in self._registry:
                 new_bases.append(b)
                 continue
 
             _, base_name, base_bases, base_clsdict = \
-                cls._registry[b.__name__][-1]
+                self._registry[b.__name__][b.__module__]
 
             new_bases += reversed(base_bases)
 
@@ -151,9 +184,12 @@ class _ModelRegistry:
                     # to the new mixin class
                     exec(f"""\
 @declared_attr
-def {attr}(cls):
+def {attr}(self):
     return value""", {'value': value, 'declared_attr': declared_attr}, clsdict)
 
             new_bases.append(type(f'{base_name}Mixin', (object,), clsdict))
 
         return tuple(reversed(new_bases))
+
+
+_model_registry = _ModelRegistry()

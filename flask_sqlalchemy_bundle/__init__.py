@@ -4,7 +4,6 @@ from .alembic import MaterializedViewMigration
 from .decorators import param_converter
 from .extensions import db
 from .services import ModelManager, SessionManager
-from .sqla.metaclass import _ModelRegistry
 
 
 class FlaskSQLAlchemyBundle(Bundle):
@@ -13,4 +12,5 @@ class FlaskSQLAlchemyBundle(Bundle):
 
     @classmethod
     def after_init_app(cls, app):
-        _ModelRegistry.finish_initializing()
+        from .sqla.metaclass import _model_registry
+        _model_registry.finalize_mappings()

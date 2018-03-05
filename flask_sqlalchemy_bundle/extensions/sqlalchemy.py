@@ -11,7 +11,8 @@ class SQLAlchemy(BaseSQLAlchemy):
         super().__init__(app, use_native_unicode, session_options,
                          metadata, query_class, model_class)
 
-        self.BaseModel = self.make_declarative_base(sqla.BaseModel, metadata)
+        self.BaseModel: sqla.BaseModel = \
+            self.make_declarative_base(sqla.BaseModel, metadata)
 
         class Model(sqla.TimestampMixin, self.BaseModel):
             __abstract__ = True
