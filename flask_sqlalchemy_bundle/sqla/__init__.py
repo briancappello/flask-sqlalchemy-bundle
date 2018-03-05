@@ -9,7 +9,6 @@ from .events import attach_events, on, slugify
 from .materialized_view import (_create_materialized_view,
                                 _refresh_materialized_view,
                                 _refresh_all_materialized_views)
-from . import metaclass
 from .mixins import PrimaryKeyMixin, TimestampMixin
 from .relationships import foreign_key
 from .types import BigInteger, DateTime

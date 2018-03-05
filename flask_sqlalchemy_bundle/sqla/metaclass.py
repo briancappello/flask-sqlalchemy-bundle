@@ -13,29 +13,44 @@ work, a model must declare itself extendable and/or overridable::
         # ... (everything else is the same as normal)
 """
 import warnings
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from flask_sqlalchemy.model import DefaultMeta
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm.interfaces import MapperProperty
+from typing import *
 
 
-def _normalize_model_meta(meta):
-    d = {'lazy_mapping': getattr(meta, 'lazy_mapping', False),
-         'relationships': getattr(meta, 'relationships', {}),
-         }
-
-    return type('Meta', (object,), d)
+MetaNewArgs = namedtuple('MetaNewArgs',
+                         ('metaclass', 'name', 'bases', 'clsdict'))
+MetaInitArgs = namedtuple('MetaInitArgs',
+                          ('model_class', 'name', 'bases', 'clsdict'))
 
 
-class ModelMeta(DefaultMeta):
+class ModelMeta:
+    lazy_mapping: bool = False
+    relationships: Dict[str, str] = {}
+
+    @classmethod
+    def create(cls, lazy_mapping=False, relationships=None):
+        relationships = relationships or {}
+        return type('ModelMeta', (cls,), dict(lazy_mapping=lazy_mapping,
+                                              relationships=relationships))
+
+
+def _normalize_model_meta(meta) -> Type[ModelMeta]:
+    return ModelMeta.create(lazy_mapping=getattr(meta, 'lazy_mapping', False),
+                            relationships=getattr(meta, 'relationships', {}))
+
+
+class SQLAlchemyBaseModelMeta(DefaultMeta):
     def __new__(mcs, name, bases, clsdict):
         if '__abstract__' in clsdict:
             return super().__new__(mcs, name, bases, clsdict)
 
         bases = _model_registry.contribute_to_class(name, bases, clsdict)
-        _model_registry.register_new(mcs, name, bases, clsdict)
+        _model_registry.register_new(MetaNewArgs(mcs, name, bases, clsdict))
         return super().__new__(mcs, name, bases, clsdict)
 
     def __init__(cls, name, bases, clsdict):
@@ -44,7 +59,8 @@ class ModelMeta(DefaultMeta):
         if not is_lazy:
             super().__init__(name, bases, clsdict)
         if is_concrete:
-            _model_registry.register(cls, name, bases, clsdict, is_lazy)
+            _model_registry.register(MetaInitArgs(cls, name, bases, clsdict),
+                                     is_lazy)
 
 
 class _ModelRegistry:
@@ -54,21 +70,21 @@ class _ModelRegistry:
         # - order of keys signifies model class discovery order at import time
         # - values are a lookup of:
         #   - keys: module name of this particular model class
-        #   - values: tuple of (model_mcs, name, bases, clsdict)
+        #   - values: MetaNewArgs(model_mcs, name, bases, clsdict)
         # this dict is used for inspecting base classes when __new__ is
         # called on a model class that extends another of the same name
-        self._registry = defaultdict(dict)
+        self._registry: Dict[str, Dict[str, MetaNewArgs]] = defaultdict(dict)
 
         # actual model classes awaiting initialization (after type.__new__ but
         # before type.__init__):
         # - keyed by model class name
-        # - values are tuples of (model_cls, name, bases, clsdict)
+        # - values are MetaInitArgs(model_cls, name, bases, clsdict)
         # this lookup contains the knowledge of which version of a model class
-        # should maybe get mapped (ModelMeta populates this lookup via the
-        # register method - insertion order of the correct version of a model
-        # class by name is therefore determined by the import order of bundles'
-        # models modules)
-        self._models = {}
+        # should maybe get mapped (SQLAlchemyBaseModelMeta populates this dict
+        # via the register method - insertion order of the correct version of a
+        # model class by name is therefore determined by the import order of
+        # bundles' models modules (essentially, by the RegisterModelsHook))
+        self._models: Dict[str, MetaInitArgs] = {}
 
         # like self._models, except its values are the relationships each model
         # class name expects on the other side
@@ -76,10 +92,10 @@ class _ModelRegistry:
         # - values are a dict:
         #   - keyed by the model name on the other side
         #   - value is the attribute expected to exist
-        self._relationships = {}
+        self._relationships: Dict[str, Dict[str, str]] = {}
 
         # which keys in self._models have already been initialized
-        self._initialized = set()
+        self._initialized: Set[str] = set()
 
     def _reset(self):
         self._registry = defaultdict(dict)
@@ -87,28 +103,29 @@ class _ModelRegistry:
         self._relationships = {}
         self._initialized = set()
 
-    def register_new(self, model_mcs, name, bases, clsdict):
-        self._registry[name][clsdict['__module__']] = \
-            (model_mcs, name, bases, clsdict)
+    def register_new(self, args: MetaNewArgs):
+        self._registry[args.name][args.clsdict['__module__']] = args
 
-    def register(self, model_cls, name, bases, clsdict, is_lazy):
-        self._models[name] = (model_cls, name, bases, clsdict)
+    def register(self, args: MetaInitArgs, is_lazy: bool):
+        self._models[args.name] = args
         if not is_lazy:
-            self._initialized.add(name)
+            self._initialized.add(args.name)
 
-        relationships = model_cls._meta.relationships
+        relationships = args.model_class._meta.relationships
         if relationships:
-            self._relationships[name] = relationships
+            self._relationships[args.name] = relationships
 
     def finalize_mappings(self):
-        # this outer loop is used to perform initializations in the order the
-        # classes were originally discovered (ie at import time)
+        # this outer loop is needed to perform initializations in the order the
+        # classes were originally discovered at import time
         for name in self._registry:
             if self.should_initialize(name):
                 model_cls, name, bases, clsdict = self._models[name]
-                super(ModelMeta, model_cls).__init__(name, bases, clsdict)
+                super(SQLAlchemyBaseModelMeta, model_cls).__init__(name, bases,
+                                                                   clsdict)
                 self._initialized.add(name)
-        return {name: self._models[name][0] for name in self._initialized}
+        return {name: self._models[name].model_class
+                for name in self._initialized}
 
     def should_initialize(self, model_name):
         if model_name in self._initialized:
@@ -126,7 +143,7 @@ class _ModelRegistry:
             warnings.filterwarnings('ignore', filter_re, SAWarning)
 
             for related_model_name in self._relationships[model_name]:
-                related_model = self._models[related_model_name][0]
+                related_model = self._models[related_model_name].model_class
 
                 other_side_relationships = self._relationships[related_model_name]
                 if model_name not in other_side_relationships:

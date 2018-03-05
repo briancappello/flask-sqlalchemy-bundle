@@ -3,16 +3,16 @@ from flask_sqlalchemy import SQLAlchemy as BaseSQLAlchemy, BaseQuery
 from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 
 from .. import sqla
+from ..sqla import BaseModel
+from ..sqla.metaclass import SQLAlchemyBaseModelMeta
 
 
 class SQLAlchemy(BaseSQLAlchemy):
     def __init__(self, app=None, use_native_unicode=True, session_options=None,
-                 metadata=None, query_class=BaseQuery, model_class=sqla.BaseModel):
+                 metadata=None, query_class=BaseQuery, model_class=BaseModel):
         super().__init__(app, use_native_unicode, session_options,
                          metadata, query_class, model_class)
-
-        self.BaseModel: sqla.BaseModel = \
-            self.make_declarative_base(sqla.BaseModel, metadata)
+        self.BaseModel = self.make_declarative_base(BaseModel, metadata)
 
         class Model(sqla.TimestampMixin, self.BaseModel):
             __abstract__ = True
@@ -73,7 +73,7 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.MaterializedView = MaterializedView
 
     def include_polymorphic_model(self):
-        class PolymorphicMeta(sqla.metaclass.ModelMeta):
+        class PolymorphicMeta(SQLAlchemyBaseModelMeta):
             def __new__(mcs, name, bases, clsdict):
                 if '__abstract__' in clsdict:
                     return super().__new__(mcs, name, bases, clsdict)
@@ -94,11 +94,11 @@ class SQLAlchemy(BaseSQLAlchemy):
             discriminator = self.Column(self.String(64))
         self.PolymorphicModel = PolymorphicModel
 
-    def make_declarative_base(self, model, metadata=None) -> sqla.BaseModel:
+    def make_declarative_base(self, model, metadata=None) -> BaseModel:
         if not isinstance(model, DeclarativeMeta):
             def abstract_model_meta(name, bases, clsdict):
                 clsdict['__abstract__'] = True
-                return sqla.metaclass.ModelMeta(name, bases, clsdict)
+                return SQLAlchemyBaseModelMeta(name, bases, clsdict)
 
             model = declarative_base(
                 cls=model,
