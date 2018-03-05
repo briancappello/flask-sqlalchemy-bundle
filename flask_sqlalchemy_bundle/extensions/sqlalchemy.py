@@ -1,5 +1,6 @@
 from functools import partial
 from flask_sqlalchemy import SQLAlchemy as BaseSQLAlchemy, BaseQuery
+from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 
 from .. import sqla
 
@@ -68,3 +69,17 @@ class SQLAlchemy(BaseSQLAlchemy):
                 self.refresh_materialized_view(cls.__tablename__, concurrently)
 
         self.MaterializedView = MaterializedView
+
+    def make_declarative_base(self, model, metadata=None) -> sqla.BaseModel:
+        if not isinstance(model, DeclarativeMeta):
+            def abstract_model_meta(name, bases, clsdict):
+                clsdict['__abstract__'] = True
+                return sqla.metaclass.ModelMeta(name, bases, clsdict)
+
+            model = declarative_base(
+                cls=model,
+                name='BaseModel',
+                metadata=metadata,
+                metaclass=abstract_model_meta,
+            )
+        return super().make_declarative_base(model, metadata)

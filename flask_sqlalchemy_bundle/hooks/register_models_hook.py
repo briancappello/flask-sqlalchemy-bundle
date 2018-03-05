@@ -5,6 +5,7 @@ from flask_unchained import AppFactoryHook
 from typing import *
 
 from ..extensions import db
+from ..sqla.metaclass import _ModelRegistry
 
 
 class RegisterModelsHook(AppFactoryHook):
@@ -12,11 +13,13 @@ class RegisterModelsHook(AppFactoryHook):
     priority = 10
     bundle_module_name = 'models'
 
-    _limit_discovery_to_bundle_superclasses = True
-    _limit_discovery_to_local_declarations = False
-
-    def process_objects(self, app: Flask, models: Dict[str, Type[db.BaseModel]]):
-        self.store.models = models
+    def process_objects(self, app: Flask, all_discovered_models):
+        # this hook is responsible for discovering models, which happens by
+        # importing each bundle's models module. the metaclasses of models
+        # register themselves with the model registry. and the model registry
+        # has final say over which models should end up getting mapped with
+        # SQLAlchemy
+        self.store.models = _ModelRegistry.finish_initializing()
 
     def type_check(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
