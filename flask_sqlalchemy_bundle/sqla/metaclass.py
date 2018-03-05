@@ -145,7 +145,17 @@ class _ModelRegistry:
             for related_model_name in self._relationships[model_name]:
                 related_model = self._models[related_model_name].model_class
 
-                other_side_relationships = self._relationships[related_model_name]
+                try:
+                    other_side_relationships = \
+                        self._relationships[related_model_name]
+                except KeyError:
+                    related_model_module = \
+                        self._models[related_model_name].model_class.__module__
+                    raise KeyError(
+                        'Incomplete `relationships` Meta declaration for '
+                        f'{related_model_module}.{related_model_name} '
+                        f'(missing {model_name})')
+
                 if model_name not in other_side_relationships:
                     continue
                 related_attr = other_side_relationships[model_name]
@@ -154,15 +164,22 @@ class _ModelRegistry:
 
     def contribute_to_class(self, name, bases, clsdict):
         meta = _normalize_model_meta(clsdict.pop('Meta', None))
-
         discovered_relationships = {}
-        for base in bases:
-            for k, v in vars(base).items():
+
+        def discover_relationships(d):
+            for k, v in d.items():
                 if isinstance(v, RelationshipProperty):
                     discovered_relationships[v.argument] = k
-        for k, v in clsdict.items():
-            if isinstance(v, RelationshipProperty):
-                discovered_relationships[v.argument] = k
+                    if v.backref and meta.lazy_mapping:
+                        raise Exception(
+                            f'Discovered a lazy-mapped backref `{k}` on '
+                            f'`{clsdict["__module__"]}.{name}`. Currently this '
+                            'is unsupported; please use `db.relationship` with '
+                            'the `back_populates` kwarg on both sides instead.')
+
+        for base in bases:
+            discover_relationships(vars(base))
+        discover_relationships(clsdict)
 
         meta.relationships.update(discovered_relationships)
         clsdict['_meta'] = meta
