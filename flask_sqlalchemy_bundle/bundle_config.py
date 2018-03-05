@@ -32,4 +32,4 @@ class StagingConfig(ProdConfig):
 
 
 class TestConfig(BaseConfig):
-    pass
+    SQLALCHEMY_DATABASE_URI = 'sqlite://'  # :memory:
