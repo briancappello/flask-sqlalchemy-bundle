@@ -21,27 +21,140 @@ from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm.interfaces import MapperProperty
 from typing import *
 
-
 MetaNewArgs = namedtuple('MetaNewArgs',
                          ('metaclass', 'name', 'bases', 'clsdict'))
 MetaInitArgs = namedtuple('MetaInitArgs',
                           ('model_class', 'name', 'bases', 'clsdict'))
 
+_missing = object()
+
+def deep_getattr(clsdict, bases, name, default=_missing):
+    value = clsdict.get(name, _missing)
+    if value != _missing:
+        return value
+    for base in bases:
+        value = getattr(base, name, _missing)
+        if value != _missing:
+            return value
+    if default != _missing:
+        return default
+    raise AttributeError(name)
+
+
+class MetaOption:
+    def __init__(self, name, default=None, inherit=False, checker=None):
+        self.name = name
+        self.default = default
+        self.inherit = inherit
+        self.checker = checker
+
+    def get_value(self, meta, base_meta):
+        value = self.default
+        if self.inherit and base_meta is not None:
+            value = getattr(base_meta, self.name, value)
+        if meta is not None:
+            value = getattr(meta, self.name, value)
+        if self.checker is not None:
+            self.checker(meta, value)
+        return value
+
+    def contribute_to_class(self, meta_args: MetaNewArgs, model_meta):
+        pass
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} name={self.name!r}, ' \
+               f'value={self.default!r}, inherit={self.inherit}>'
+
+
+class RelationshipsOption(MetaOption):
+    def __init__(self):
+        super().__init__('relationships', default={}, inherit=True)
+
+    def get_value(self, meta, base_meta):
+        """overridden to merge with inherited value"""
+        value = getattr(base_meta, self.name, self.default)
+        value.update(getattr(meta, self.name, self.default))
+        return value
+
+    def contribute_to_class(self, meta_args: MetaNewArgs, model_meta):
+        _, name, bases, clsdict = meta_args
+        discovered_relationships = {}
+
+        def discover_relationships(d):
+            for k, v in d.items():
+                if isinstance(v, RelationshipProperty):
+                    discovered_relationships[v.argument] = k
+                    if v.backref and model_meta.lazy_mapping:
+                        raise Exception(
+                            f'Discovered a lazy-mapped backref `{k}` on '
+                            f'`{clsdict["__module__"]}.{name}`. Currently this '
+                            'is unsupported; please use `db.relationship` with '
+                            'the `back_populates` kwarg on both sides instead.')
+
+        for base in bases:
+            discover_relationships(vars(base))
+        discover_relationships(clsdict)
+
+        model_meta.relationships.update(discovered_relationships)
+
 
 class ModelMeta:
-    lazy_mapping: bool = False
-    relationships: Dict[str, str] = {}
+    def __init__(self):
+        self._meta_args: MetaNewArgs = None
 
-    @classmethod
-    def create(cls, lazy_mapping=False, relationships=None):
-        relationships = relationships or {}
-        return type('ModelMeta', (cls,), dict(lazy_mapping=lazy_mapping,
-                                              relationships=relationships))
+    @property
+    def _model_repr(self):
+        return '{module}.{name}'.format(
+            module=self._meta_args.clsdict['__module__'],
+            name=self._meta_args.name)
 
+    def _build_default_options(self) -> List[MetaOption]:
+        """"
+        Provide the default value for all allowed fields.
 
-def _normalize_model_meta(meta) -> Type[ModelMeta]:
-    return ModelMeta.create(lazy_mapping=getattr(meta, 'lazy_mapping', False),
-                            relationships=getattr(meta, 'relationships', {}))
+        Custom ModelMeta classes should override this method
+        to update its return value.
+        """
+        return [
+            MetaOption('lazy_mapping', default=False),
+            RelationshipsOption(),  # must come after lazy_mapping
+        ]
+
+    def contribute_to_class(self, meta_args: MetaNewArgs):
+        _, name, bases, clsdict = self._meta_args = meta_args
+
+        cls_meta = clsdict.pop('Meta', None)
+        base_meta = deep_getattr({}, bases, '_meta', None)
+        self._fill_from_meta(cls_meta, base_meta)
+
+        for option in self._build_default_options():
+            option.contribute_to_class(meta_args, self)
+        clsdict['_meta'] = self
+
+    def _fill_from_meta(self, meta, base_meta):
+        # Exclude private/protected fields from the meta
+        meta_attrs = {} if not meta else {k: v for k, v in vars(meta).items()
+                                          if not k.startswith('_')}
+
+        for option in self._build_default_options():
+            assert not hasattr(self, option.name), \
+                f"Can't override field {option.name}."
+            value = option.get_value(meta, base_meta)
+            meta_attrs.pop(option.name, None)
+            setattr(self, option.name, value)
+
+        if meta_attrs:
+            # Some attributes in the Meta aren't allowed here
+            raise TypeError(
+                f"'class Meta' for {self._model_repr!r} got unknown "
+                f"attribute(s) {','.join(sorted(meta_attrs.keys()))}")
+
+    def __repr__(self):
+        return '<{cls} model={model!r} meta={attrs!r}>'.format(
+            cls=self.__class__.__name__,
+            model=self._model_repr,
+            attrs={option.name: getattr(self, option.name)
+                   for option in self._build_default_options()})
 
 
 class SQLAlchemyBaseModelMeta(DefaultMeta):
@@ -49,8 +162,10 @@ class SQLAlchemyBaseModelMeta(DefaultMeta):
         if '__abstract__' in clsdict:
             return super().__new__(mcs, name, bases, clsdict)
 
-        bases = _model_registry.contribute_to_class(name, bases, clsdict)
-        _model_registry.register_new(MetaNewArgs(mcs, name, bases, clsdict))
+        model_meta_cls = deep_getattr(clsdict, bases, '_model_meta', ModelMeta)
+        model_meta: ModelMeta = model_meta_cls()
+        model_meta.contribute_to_class(MetaNewArgs(mcs, name, bases, clsdict))
+        bases = _model_registry.register_new(mcs, name, bases, clsdict)
         return super().__new__(mcs, name, bases, clsdict)
 
     def __init__(cls, name, bases, clsdict):
@@ -103,17 +218,21 @@ class _ModelRegistry:
         self._relationships = {}
         self._initialized = set()
 
-    def register_new(self, args: MetaNewArgs):
-        self._registry[args.name][args.clsdict['__module__']] = args
+    def register_new(self, mcs, name, bases, clsdict):
+        if name in self._registry:
+            bases = self._convert_bases_to_mixins(bases)
+        self._registry[name][clsdict['__module__']] = \
+            MetaNewArgs(mcs, name, bases, clsdict)
+        return bases
 
-    def register(self, args: MetaInitArgs, is_lazy: bool):
-        self._models[args.name] = args
+    def register(self, meta_args: MetaInitArgs, is_lazy: bool):
+        self._models[meta_args.name] = meta_args
         if not is_lazy:
-            self._initialized.add(args.name)
+            self._initialized.add(meta_args.name)
 
-        relationships = args.model_class._meta.relationships
+        relationships = meta_args.model_class._meta.relationships
         if relationships:
-            self._relationships[args.name] = relationships
+            self._relationships[meta_args.name] = relationships
 
     def finalize_mappings(self):
         # this outer loop is needed to perform initializations in the order the
@@ -162,32 +281,6 @@ class _ModelRegistry:
                 if hasattr(related_model, related_attr):
                     return True
 
-    def contribute_to_class(self, name, bases, clsdict):
-        meta = _normalize_model_meta(clsdict.pop('Meta', None))
-        discovered_relationships = {}
-
-        def discover_relationships(d):
-            for k, v in d.items():
-                if isinstance(v, RelationshipProperty):
-                    discovered_relationships[v.argument] = k
-                    if v.backref and meta.lazy_mapping:
-                        raise Exception(
-                            f'Discovered a lazy-mapped backref `{k}` on '
-                            f'`{clsdict["__module__"]}.{name}`. Currently this '
-                            'is unsupported; please use `db.relationship` with '
-                            'the `back_populates` kwarg on both sides instead.')
-
-        for base in bases:
-            discover_relationships(vars(base))
-        discover_relationships(clsdict)
-
-        meta.relationships.update(discovered_relationships)
-        clsdict['_meta'] = meta
-
-        if name in _model_registry._registry:
-            bases = self._convert_bases_to_mixins(bases)
-        return bases
-
     def _convert_bases_to_mixins(self, bases):
         """
         For each base class in bases that the _ModelRegistry knows about, create
@@ -198,7 +291,6 @@ class _ModelRegistry:
            association_proxy, etc), then turn them into @declared_attr props
         """
         new_bases = []
-
         for b in reversed(bases):
             if b.__name__ not in self._registry:
                 new_bases.append(b)
