@@ -14,12 +14,16 @@ work, a model must declare itself extendable and/or overridable::
 """
 import warnings
 from collections import defaultdict, namedtuple
-from flask_sqlalchemy.model import DefaultMeta
+from flask_sqlalchemy.model import DefaultMeta, camel_to_snake_case
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm.interfaces import MapperProperty
 from typing import *
+
+from .column import Column
+from .relationships import foreign_key
+from .types import types as sa_types
 
 _missing = object()
 
@@ -47,6 +51,13 @@ class MutableMetaArgs:
     def model_meta_options(self):
         return self.clsdict['_meta']
 
+    @property
+    def is_base_model(self):
+        return not deep_getattr({}, self.bases, '_meta', None)
+
+    @property
+    def tablename(self):
+        return self.clsdict.get('__tablename__', camel_to_snake_case(self.name))
 
     def __iter__(self):
         return iter([self.mcs, self.name, self.bases, self.clsdict])
@@ -130,6 +141,55 @@ class RelationshipsOption(ModelMetaOption):
         model_meta_options.relationships.update(discovered_relationships)
 
 
+class BaseTablenameOption(ModelMetaOption):
+    def __init__(self):
+        super().__init__('_base_tablename', default=None, inherit=False)
+
+    def get_value(self, model_meta, base_model_meta):
+        if base_model_meta:
+            return base_model_meta._meta_args.tablename
+        return None
+
+
+class PolymorphicOption(ModelMetaOption):
+    def __init__(self):
+        super().__init__('polymorphic', default=False, inherit=True)
+
+    def get_value(self, model_meta, base_model_meta):
+        value = super().get_value(model_meta, base_model_meta)
+        if value and not isinstance(value, str):
+            return 'joined'
+        return value
+
+    def check_value(self, model_meta_options, value):
+        valid = ['joined', 'single', True, False]
+        msg = '{name} Meta option on {model} must be one of {choices}'.format(
+            name=self.name,
+            model=model_meta_options._meta_args.model_repr,
+            choices=', '.join(f'{c!r}' for c in valid))
+        assert value in valid, msg
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, model_meta_options):
+        polymorphic_type = model_meta_options.polymorphic
+        if not polymorphic_type:
+            return
+
+        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
+        if meta_args.is_base_model:
+            discriminator = Column(sa_types.String)
+            meta_args.clsdict['discriminator'] = discriminator
+            mapper_args['polymorphic_on'] = discriminator
+        else:
+            if polymorphic_type == 'joined' and 'id' not in meta_args.clsdict:
+                meta_args.clsdict['id'] = foreign_key(
+                    model_meta_options._base_tablename, primary_key=True)
+
+        if 'polymorphic_identity' not in mapper_args:
+            mapper_args['polymorphic_identity'] = meta_args.name
+
+        meta_args.clsdict['__mapper_args__'] = mapper_args
+
+
 class ModelMetaOptions:
     def __init__(self):
         self._meta_args: MutableMetaArgs = None
@@ -145,6 +205,8 @@ class ModelMetaOptions:
         return [
             ModelMetaOption('lazy_mapping', default=False, inherit=True),
             RelationshipsOption(),  # must be after lazy_mapping
+            BaseTablenameOption(),
+            PolymorphicOption(),  # must be after BaseTablenameOption
         ]
 
     def contribute_to_class(self, meta_args: MutableMetaArgs):

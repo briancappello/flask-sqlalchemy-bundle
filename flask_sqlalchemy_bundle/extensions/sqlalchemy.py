@@ -39,7 +39,6 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.slugify = sqla.slugify
 
         self.include_materialized_view()
-        self.include_polymorphic_model()
 
         # a bit of hackery to make type-hinting in PyCharm work better
         if False:
@@ -71,28 +70,6 @@ class SQLAlchemy(BaseSQLAlchemy):
                 self.refresh_materialized_view(cls.__tablename__, concurrently)
 
         self.MaterializedView = MaterializedView
-
-    def include_polymorphic_model(self):
-        class PolymorphicMeta(SQLAlchemyBaseModelMeta):
-            def __new__(mcs, name, bases, clsdict):
-                if '__abstract__' in clsdict:
-                    return super().__new__(mcs, name, bases, clsdict)
-
-                # automatically configure mapper_args
-                mapper_args = clsdict.get('__mapper_args__', {})
-                if bases[0] in {PolymorphicModel}:
-                    mapper_args['polymorphic_on'] = \
-                        PolymorphicModel.discriminator
-                if 'polymorphic_identity' not in mapper_args:
-                    mapper_args['polymorphic_identity'] = name
-
-                clsdict['__mapper_args__'] = mapper_args
-                return super().__new__(mcs, name, bases, clsdict)
-
-        class PolymorphicModel(self.PrimaryKeyModel, metaclass=PolymorphicMeta):
-            __abstract__ = True
-            discriminator = self.Column(self.String(64))
-        self.PolymorphicModel = PolymorphicModel
 
     def make_declarative_base(self, model, metadata=None) -> BaseModel:
         if not isinstance(model, DeclarativeMeta):

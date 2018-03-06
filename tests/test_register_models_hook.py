@@ -10,6 +10,7 @@ from ._bundles.backref import BackrefBundle
 from ._bundles.vendor_one import VendorOneBundle
 from ._bundles.ext_vendor_one import ExtVendorOneBundle
 from ._bundles.ext_ext_vendor_one import ExtExtVendorOneBundle
+from ._bundles.polymorphic import PolymorphicBundle
 from ._bundles.vendor_two import VendorTwoBundle
 
 
@@ -65,6 +66,11 @@ def get_ext_ext_vendor_one_models():
             **_to_dict([OneRole, OneUser, OneUserRole])}
 
 
+def get_polymorphic_models():
+    from ._bundles.polymorphic.models import Person, Employee
+    return _to_dict([Person, Employee])
+
+
 class TestRegisterModelsHookTypeCheck:
     def test_type_check_on_garbage(self, hook: RegisterModelsHook):
         assert hook.type_check('foo') is False
@@ -103,18 +109,6 @@ class TestRegisterModelsHookTypeCheck:
     #
     #     assert hook.type_check(db.MaterializedView) is False
     #     assert hook.type_check(MV)
-
-    def test_type_check_polymorphic_model(self, hook: RegisterModelsHook):
-        class PM(db.PolymorphicModel):
-            pass
-
-        class PME(PM):
-            id = db.foreign_key('PM', primary_key=True)
-            extra = db.Column(db.String)
-
-        assert hook.type_check(db.PolymorphicModel) is False
-        assert hook.type_check(PM)
-        assert hook.type_check(PME)
 
 
 class TestRegisterModelsHookCollectFromBundle:
@@ -158,3 +152,9 @@ class TestRegisterModelsHookCollectFromBundle:
                 'this is unsupported; please use `db.relationship` with '\
                 'the `back_populates` kwarg on both sides instead.'
         assert error in str(e)
+
+    def test_it_works_with_polymorphic(self, db, hook: RegisterModelsHook):
+        hook.run_hook(None, [PolymorphicBundle])
+        expected = get_polymorphic_models()
+        assert hook.store.models == expected
+        assert db.metadata.tables == _to_metadata_tables(expected)
