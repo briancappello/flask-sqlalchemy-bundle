@@ -10,6 +10,7 @@ from sqlalchemy import MetaData
 # reset the Flask-SQLAlchemy extension and the _model_registry to clean slate
 @pytest.fixture(autouse=True)
 def db_ext():
+    _model_registry._reset()
     db = SQLAlchemy(metadata=MetaData(naming_convention={
         'ix': 'ix_%(column_0_label)s',
         'uq': 'uq_%(table_name)s_%(column_0_name)s',
@@ -18,14 +19,20 @@ def db_ext():
         'pk': 'pk_%(table_name)s',
     }))
     setattr(flask_sqlalchemy_bundle, 'db', db)
-    _model_registry._reset()
     yield db
 
 
+@pytest.fixture()
+def bundles(request):
+    return getattr(request.keywords.get('bundles'), 'args', [None])[0]
+
+
 @pytest.fixture(autouse=True)
-def app():
+def app(bundles, db_ext):
+    if bundles and 'flask_sqlalchemy_bundle' not in bundles:
+        bundles.insert(0, 'flask_sqlalchemy_bundle')
     unchained._initialized = False  # reset the unchained extension
-    app = AppFactory.create_app('tests._app', TEST)
+    app = AppFactory.create_app('tests._app', TEST, bundles=bundles)
     ctx = app.app_context()
     ctx.push()
     yield app
