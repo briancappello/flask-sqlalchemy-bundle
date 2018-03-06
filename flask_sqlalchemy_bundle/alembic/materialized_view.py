@@ -1,5 +1,6 @@
 from alembic.autogenerate import comparators, renderers
 from alembic.operations import Operations
+from sqlalchemy.dialects.postgresql.base import PGInspector
 
 from .reversible_op import ReversibleOp
 
@@ -135,6 +136,9 @@ def _create_replaceable_sql(name, query, columns, indexes):
 @comparators.dispatch_for('schema')
 def compare_views(autogen_context, upgrade_ops, schemas):
     inspector = autogen_context.inspector
+    if not isinstance(inspector, PGInspector):
+        return  # this feature only works on postgres
+
     metadata = autogen_context.metadata
     prev_revision = autogen_context.migration_context.get_current_revision()
 
