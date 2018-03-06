@@ -314,12 +314,10 @@ class _ModelRegistry:
         self._initialized = set()
 
     def register_new(self, meta_args: MutableMetaArgs):
-        mcs, name, bases, clsdict = meta_args
-        if (name in self._registry
-                and not meta_args.model_meta_options.polymorphic):
-            meta_args.bases = self._convert_bases_to_mixins(bases)
-        self._registry[name][meta_args.module] = \
-            MetaNewArgs(mcs, name, bases, clsdict)
+        if self._should_convert_bases(meta_args):
+            meta_args.bases = self._convert_bases_to_mixins(meta_args.bases)
+        self._registry[meta_args.name][meta_args.module] = \
+            MetaNewArgs(*meta_args)
 
     def register(self, meta_args: MetaInitArgs, is_lazy: bool):
         self._models[meta_args.name] = meta_args
@@ -376,6 +374,16 @@ class _ModelRegistry:
                 if hasattr(related_model, related_attr):
                     return True
 
+    def _should_convert_bases(self, meta_args: MutableMetaArgs):
+        if meta_args.model_meta_options.polymorphic:
+            return False
+
+        for b in meta_args.bases:
+            if b.__name__ in self._registry:
+                return True
+
+        return meta_args.name in self._registry
+
     def _convert_bases_to_mixins(self, bases):
         """
         For each base class in bases that the _ModelRegistry knows about, create
@@ -385,16 +393,22 @@ class _ModelRegistry:
          - if any of the attributes are MapperProperty instances (relationship,
            association_proxy, etc), then turn them into @declared_attr props
         """
-        new_bases = []
+        def _mixin_name(name):
+            return f'{name}ConvertedMixin'
+
+        new_bases = {}
         for b in reversed(bases):
             if b.__name__ not in self._registry:
-                new_bases.append(b)
+                new_bases[b.__name__] = b
                 continue
 
             _, base_name, base_bases, base_clsdict = \
                 self._registry[b.__name__][b.__module__]
 
-            new_bases += reversed(base_bases)
+            for bb in reversed(base_bases):
+                if (bb.__name__ not in new_bases
+                        and _mixin_name(bb.__name__) not in new_bases):
+                    new_bases[bb.__name__] = bb
 
             clsdict = {}
             for attr, value in base_clsdict.items():
@@ -408,9 +422,10 @@ class _ModelRegistry:
 def {attr}(self):
     return value""", {'value': value, 'declared_attr': declared_attr}, clsdict)
 
-            new_bases.append(type(f'{base_name}Mixin', (object,), clsdict))
+            mixin_name = _mixin_name(base_name)
+            new_bases[mixin_name] = type(mixin_name, (object,), clsdict)
 
-        return tuple(reversed(new_bases))
+        return tuple(reversed(list(new_bases.values())))
 
 
 _model_registry = _ModelRegistry()
