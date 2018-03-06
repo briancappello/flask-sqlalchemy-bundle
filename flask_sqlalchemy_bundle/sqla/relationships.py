@@ -2,20 +2,27 @@ import inspect
 
 from flask_sqlalchemy.model import Model, camel_to_snake_case
 from sqlalchemy.schema import ForeignKey
+from typing import *
 
 from .column import Column
 from .types import BigInteger
 
 
 # RELATIONSHIP DOCS
-# http://docs.sqlalchemy.org/en/rel_1_1/orm/basic_relationships.html#relationship-patterns
-# http://docs.sqlalchemy.org/en/rel_1_1/orm/backref.html#relationships-backref
-# http://flask-sqlalchemy.pocoo.org/2.2/models/#one-to-many-relationships
-# http://flask-sqlalchemy.pocoo.org/2.2/models/#many-to-many-relationships
+# http://docs.sqlalchemy.org/en/latest/orm/basic_relationships.html#relationship-patterns
+# http://docs.sqlalchemy.org/en/latest/orm/backref.html#relationships-backref
+# http://flask-sqlalchemy.pocoo.org/2.3/models/#one-to-many-relationships
+# http://flask-sqlalchemy.pocoo.org/2.3/models/#many-to-many-relationships
 
 
-def foreign_key(model_or_table_name, fk_col=None, primary_key=False, **kwargs):
-    """Helper method to add a foreign key Column to a model.
+def foreign_key(model_or_table_name_or_column_name: Union[str, Type[Model]],
+                model_or_table_name: Optional[Union[str, Type[Model]]] = None,
+                *,
+                fk_col: str = 'id',
+                primary_key: bool = False,
+                **kwargs,
+                ) -> Column:
+    """Helper method to add a foreign key column to a model.
 
     For example::
 
@@ -28,6 +35,10 @@ def foreign_key(model_or_table_name, fk_col=None, primary_key=False, **kwargs):
         class Post(Model):
             category_id = Column(BigInteger, ForeignKey('category.id'), nullable=False)
             category = relationship('Category', back_populates='posts')
+
+    :param model_or_table_name_or_column_name: If two arguments are given, then
+        this is treated as the column name. Otherwise, it's treated as the table
+        name (see docs for model_or_table_name)
 
     :param model_or_table_name: the model or table name to link to
 
@@ -44,12 +55,18 @@ def foreign_key(model_or_table_name, fk_col=None, primary_key=False, **kwargs):
     :param bool primary_key: Whether or not this Column is a primary key
     :param dict kwargs: any other kwargs to pass the Column constructor
     """
-    fk_col = fk_col or 'id'
+    column_name = model_or_table_name_or_column_name
+    if model_or_table_name is None:
+        column_name = None
+        model_or_table_name = model_or_table_name_or_column_name
+
     table_name = model_or_table_name
-    model = model_or_table_name
-    if inspect.isclass(model) and issubclass(model, Model):
-        table_name = model.__tablename__
-    elif table_name != model_or_table_name.lower():
+    if inspect.isclass(model_or_table_name):
+        table_name = model_or_table_name.__tablename__
+    elif table_name != table_name.lower():
         table_name = camel_to_snake_case(model_or_table_name)
-    return Column(BigInteger, ForeignKey(f'{table_name}.{fk_col}'),
-                  primary_key=primary_key, **kwargs)
+
+    args = [column_name] if column_name else []
+    args += [BigInteger, ForeignKey(f'{table_name}.{fk_col}')]
+
+    return Column(*args, primary_key=primary_key, **kwargs)
