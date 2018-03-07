@@ -1,6 +1,6 @@
 import pytest
 
-from flask_sqlalchemy_bundle.sqla.metaclass import _model_registry
+from flask_sqlalchemy_bundle.sqla.meta.model_registry import _model_registry
 
 
 def _names(bases):

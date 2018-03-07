@@ -1,9 +1,8 @@
 from flask_sqlalchemy import Model as BaseModel
-from flask_sqlalchemy_bundle.sqla.metaclass import (
-    ModelMetaOption, ModelMetaOptions)
+from flask_sqlalchemy_bundle.sqla.meta import MetaOption, ModelMetaFactory
 
 
-class ExtendExisting(ModelMetaOption):
+class ExtendExisting(MetaOption):
     def __init__(self):
         super().__init__(name='extend_existing', default=True, inherit=False)
 
@@ -21,7 +20,7 @@ class ExtendExisting(ModelMetaOption):
         meta_args.clsdict['__table_args__'] = table_args
 
 
-class CustomModelMetaOptions(ModelMetaOptions):
+class CustomModelMetaOptions(ModelMetaFactory):
     def _get_model_meta_options(self):
         return super()._get_model_meta_options() + [
             ExtendExisting(),

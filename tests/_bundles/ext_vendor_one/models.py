@@ -7,7 +7,7 @@ from ..vendor_one.models import OneBasic as BaseOneBasic
 # test extending OneBasic to add an extra column
 class OneBasic(BaseOneBasic):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     ext = db.Column(db.String)
 
@@ -15,7 +15,7 @@ class OneBasic(BaseOneBasic):
 # test overriding OneParent to remove the children relationship
 class OneParent(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
 
@@ -24,7 +24,7 @@ class OneParent(db.Model):
 # one-to-many instead of many-to-many
 class OneUser(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
 
@@ -33,7 +33,7 @@ class OneUser(db.Model):
 
 class OneRole(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
 

@@ -31,15 +31,15 @@ class YourAppBundle(AppBundle):
 ```python
 from flask_sqlalchemy_bundle import BaseModel, db
 from flask_sqlalchemy_bundle.sqla import Column, BigInteger
-from flask_sqlalchemy_bundle.sqla.metaclass import (
-    AbstractOption, ModelColumnMetaOption, ModelMetaOption, ModelMetaOptions)
+from flask_sqlalchemy_bundle.sqla.meta import (
+    AbstractMetaOption, ColumnMetaOption, MetaOption, ModelMetaFactory)
 
 
 # here's an example of an option to automatically add a primary key column to
 # models. this implementation is included, and is only shown here as an example
 # normally you would just import it:
-# from flask_sqlalchemy_bundle.sqla.metaclass import PrimaryKeyColumnOption
-class PrimaryKeyColumnOption(ModelColumnMetaOption):
+# from flask_sqlalchemy_bundle.sqla.meta import PrimaryKeyColumnMetaOption
+class PrimaryKeyColumnMetaOption(ColumnMetaOption):
     def __init__(self, name='pk', default='id', inherit=True):
         super().__init__(name=name, default=default, inherit=inherit)
 
@@ -47,7 +47,7 @@ class PrimaryKeyColumnOption(ModelColumnMetaOption):
         return Column(BigInteger, primary_key=True)
 
 
-class ExtendExistingOption(ModelMetaOption):
+class ExtendExistingMetaOption(MetaOption):
     def __init__(self):
         super().__init__(name='extend_existing', default=True, inherit=True)
 
@@ -58,17 +58,17 @@ class ExtendExistingOption(ModelMetaOption):
             meta_args.clsdict['__table_args__'] = table_args
 
 
-class CustomModelMetaOptions(ModelMetaOptions):
+class CustomModelMetaFactory(ModelMetaFactory):
     def _get_model_meta_options(self):
         return [
-            AbstractOption(),  # always required, and must be first
-            PrimaryKeyColumnOption(),
-            ExtendExistingOption(),
+            AbstractMetaOption(),  # always required, and must be first
+            PrimaryKeyColumnMetaOption(),
+            ExtendExistingMetaOption(),
         ]
 
 
 class CustomBaseModel(BaseModel):
-    _meta_options_class = CustomModelMetaOptions
+    _meta_factory_class = CustomModelMetaFactory
 
 
 class Example(db.Model):

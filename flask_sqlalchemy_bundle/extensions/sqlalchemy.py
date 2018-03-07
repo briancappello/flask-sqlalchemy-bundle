@@ -4,7 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from .. import sqla
 from ..sqla import BaseModel
-from ..sqla.metaclass import SQLAlchemyBaseModelMeta, _model_registry
+from ..sqla.meta.base_model_metaclass import BaseModelMetaclass
+from ..sqla.meta.model_registry import _model_registry
 
 
 class SQLAlchemy(BaseSQLAlchemy):
@@ -63,7 +64,7 @@ class SQLAlchemy(BaseSQLAlchemy):
             def make_model_metaclass(name, bases, clsdict):
                 clsdict['__abstract__'] = True
                 clsdict['__module__'] = model.__module__
-                return SQLAlchemyBaseModelMeta(name, bases, clsdict)
+                return BaseModelMetaclass(name, bases, clsdict)
 
             model = declarative_base(
                 cls=model,

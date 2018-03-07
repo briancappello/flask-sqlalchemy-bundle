@@ -3,7 +3,8 @@ import pytest
 from flask_unchained import unchained
 
 from tests._bundles.custom_extension.extensions import (
-    SQLAlchemy as CustomSQLAlchemy, Model as CustomModel)
+    SQLAlchemy as CustomSQLAlchemy,
+    Model as CustomModel)
 
 
 @pytest.mark.bundles(['tests._bundles.custom_extension',

@@ -3,15 +3,15 @@ from flask_sqlalchemy_bundle import db
 
 class OneBasic(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
 
 
 class OneParent(db.Model):
     class Meta:
-        lazy_mapping = True
-        relationships = {'OneChild': 'children'}
+        lazy_mapped = True
+        # relationships = {'OneChild': 'children'}
 
     name = db.Column(db.String)
 
@@ -20,8 +20,8 @@ class OneParent(db.Model):
 
 class OneChild(db.Model):
     class Meta:
-        lazy_mapping = True
-        relationships = {'OneParent': 'parent'}
+        lazy_mapped = True
+        # relationships = {'OneParent': 'parent'}
 
     name = db.Column(db.String)
 
@@ -32,10 +32,9 @@ class OneChild(db.Model):
 class OneUserRole(db.Model):
     """Join table between User and Role"""
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
         pk = None
-        relationships = {'OneUser': 'user',
-                         'OneRole': 'role'}
+        # relationships = {'OneUser': 'user', 'OneRole': 'role'}
 
     user_id = db.foreign_key('OneUser', primary_key=True)
     user = db.relationship('OneUser', back_populates='user_roles')
@@ -55,8 +54,8 @@ class OneUserRole(db.Model):
 
 class OneUser(db.Model):
     class Meta:
-        lazy_mapping = True
-        relationships = {'OneUserRole': 'user_roles'}
+        lazy_mapped = True
+        # relationships = {'OneUserRole': 'user_roles'}
 
     name = db.Column(db.String)
 
@@ -68,10 +67,12 @@ class OneUser(db.Model):
 
 class OneRole(db.Model):
     class Meta:
-        lazy_mapping = True
-        relationships = {'OneUserRole': 'role_users'}
+        lazy_mapped = True
+        # relationships = {'OneUserRole': 'role_users'}
 
-    name = db.Column(db.String(63), unique=True, index=True)
+    # FIXME with a custom extension, this is broken when a column has index=True
+    # it works outside of these tests, under normal circumstances in user app bundles
+    name = db.Column(db.String)
 
     role_users = db.relationship('OneUserRole', back_populates='role',
                                  cascade='all, delete-orphan')

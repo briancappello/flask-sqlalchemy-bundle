@@ -3,7 +3,7 @@ from flask_sqlalchemy_bundle import db
 
 class OneRelationship(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
     backrefs = db.relationship('OneBackref', backref=db.backref('relationship'))
@@ -11,7 +11,7 @@ class OneRelationship(db.Model):
 
 class OneBackref(db.Model):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
     name = db.Column(db.String)
     relationship_id = db.foreign_key('OneRelationship')

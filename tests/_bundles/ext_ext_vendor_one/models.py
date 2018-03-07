@@ -6,7 +6,7 @@ from ..vendor_one.models import (
 
 class OneUser(BaseOneUser):
     class Meta:
-        lazy_mapping = True
+        lazy_mapped = True
 
 
 class OneRole(BaseOneRole):
