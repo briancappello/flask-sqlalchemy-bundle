@@ -56,6 +56,11 @@ class SQLAlchemy(BaseSQLAlchemy):
             partial(sqla._refresh_all_materialized_views, db=self)
 
         class MaterializedView(self.Model):
+            class Meta:
+                pk = None
+                created_at = None
+                updated_at = None
+
             __abstract__ = True
 
             @sqla.declared_attr

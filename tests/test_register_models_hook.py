@@ -94,16 +94,23 @@ class TestRegisterModelsHookTypeCheck:
         assert hook.type_check(db.Model) is False
         assert hook.type_check(M)
 
-    # FIXME: requires PostgreSQL
-    # def test_type_check_materialized_view(self, hook: RegisterModelsHook):
-    #     class MVT(db.Model):
-    #         name = db.Column(db.Integer, primary_key=True)
-    #
-    #     class MV(db.MaterializedView):
-    #         __table__ = db.create_materialized_view('mv', db.select([MVT.id]))
-    #
-    #     assert hook.type_check(db.MaterializedView) is False
-    #     assert hook.type_check(MV)
+    @pytest.mark.options(SQLALCHEMY_DATABASE_URI=
+        '{dialect}://{user}:{password}@{host}:{port}/{db_name}'.format(
+            dialect='postgresql+psycopg2',
+            user='flask_test',
+            password='flask_test',
+            host='127.0.0.1',
+            port=5432,
+            db_name='flask_test'))
+    def test_type_check_materialized_view(self, db, hook: RegisterModelsHook):
+        class MVT(db.Model):
+            name = db.Column(db.Integer, primary_key=True)
+
+        class MV(db.MaterializedView):
+            __table__ = db.create_materialized_view('mv', db.select([MVT.id]))
+
+        assert hook.type_check(db.MaterializedView) is False
+        assert hook.type_check(MV)
 
 
 class TestRegisterModelsHookCollectFromBundle:
