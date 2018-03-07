@@ -1,8 +1,8 @@
 import factory
 import pytest
 
-from flask_sqlalchemy_bundle import db
 from flask_sqlalchemy_bundle.decorators import param_converter
+from flask_unchained import unchained
 from werkzeug.exceptions import NotFound
 
 
@@ -11,9 +11,10 @@ class ModelFactory(factory.Factory):
         abstract = True
 
     @classmethod
-    def _create(cls, model_class, *args, **kwargs):
+    @unchained.inject('db')
+    def _create(cls, model_class, db, *args, **kwargs):
         filter_kwargs = {k: v for k, v in kwargs.items() if '__' not in k}
-        instance = model_class.get_by(**filter_kwargs)
+        instance = model_class.query.filter_by(**filter_kwargs).first()
         if not instance:
             instance = model_class(*args, **kwargs)
             db.session.add(instance)

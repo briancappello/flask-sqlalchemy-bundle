@@ -5,21 +5,18 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from .. import sqla
 from ..sqla import BaseModel
-from ..sqla.metaclass import SQLAlchemyBaseModelMeta
+from ..sqla.metaclass import SQLAlchemyBaseModelMeta, _model_registry
 
 
 class SQLAlchemy(BaseSQLAlchemy):
     def __init__(self, app=None, use_native_unicode=True, session_options=None,
-                 metadata=None, query_class=BaseQuery, model_class=BaseModel,
-                 model_metaclass=SQLAlchemyBaseModelMeta):
+                 metadata=None, query_class=BaseQuery, model_class=BaseModel):
         super().__init__(app, use_native_unicode=use_native_unicode,
                          session_options=session_options,
                          metadata=metadata,
                          query_class=query_class,
                          model_class=model_class)
-
-        self.Model = self.make_declarative_base(
-            model_class, metadata, model_metaclass)
+        _model_registry.register_base_model_class(self.Model)
 
         self.Column = sqla.Column
         self.BigInteger = sqla.BigInteger
@@ -73,12 +70,12 @@ class SQLAlchemy(BaseSQLAlchemy):
 
         self.MaterializedView = MaterializedView
 
-    def make_declarative_base(self, model, metadata=None,
-                              metaclass=SQLAlchemyBaseModelMeta) -> BaseModel:
+    def make_declarative_base(self, model, metadata=None) -> BaseModel:
         if not isinstance(model, DefaultMeta):
             def make_model_metaclass(name, bases, clsdict):
                 clsdict['__abstract__'] = True
-                return metaclass(name, bases, clsdict)
+                clsdict['__module__'] = model.__module__
+                return SQLAlchemyBaseModelMeta(name, bases, clsdict)
 
             model = declarative_base(
                 cls=model,

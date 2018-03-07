@@ -54,6 +54,9 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
             setattr(self, attr, value)
         return self
 
+
+# this base class is unused by default, but end users choose to use it
+class QueryBaseModel(BaseModel):
     @classmethod
     def all(cls):
         """Get all models."""

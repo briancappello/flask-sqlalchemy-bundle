@@ -1,24 +1,49 @@
+import importlib
 import pytest
 
-import flask_sqlalchemy_bundle
-from flask_sqlalchemy_bundle.extensions import SQLAlchemy
 from flask_sqlalchemy_bundle.sqla.metaclass import _model_registry
 from flask_unchained import AppFactory, TEST, unchained
 from sqlalchemy import MetaData
 
 
 # reset the Flask-SQLAlchemy extension and the _model_registry to clean slate
+# support loading the extension from different test bundles.
+# NOTE: luckily none of these hacks are required in end users' test suites
+# making use of flask_sqlalchemy_bundle
 @pytest.fixture(autouse=True)
-def db_ext():
+def db_ext(bundles):
+    db_bundles = ['flask_sqlalchemy_bundle', 'tests._bundles.custom_extension']
+    try:
+        module_name = [m for m in db_bundles if m in bundles][0]
+    except (IndexError, TypeError):
+        module_name = 'flask_sqlalchemy_bundle'
+    extensions_module_name = f'{module_name}.extensions'
+
     _model_registry._reset()
-    db = SQLAlchemy(metadata=MetaData(naming_convention={
-        'ix': 'ix_%(column_0_label)s',
-        'uq': 'uq_%(table_name)s_%(column_0_name)s',
-        'ck': 'ck_%(table_name)s_%(constraint_name)s',
-        'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s',
-        'pk': 'pk_%(table_name)s',
-    }))
-    setattr(flask_sqlalchemy_bundle, 'db', db)
+
+    db_module = importlib.import_module(module_name)
+    db_extensions_module = importlib.import_module(extensions_module_name)
+
+    kwargs = getattr(db_extensions_module, 'kwargs', dict(
+        metadata=MetaData(naming_convention={
+            'ix': 'ix_%(column_0_label)s',
+            'uq': 'uq_%(table_name)s_%(column_0_name)s',
+            'ck': 'ck_%(table_name)s_%(constraint_name)s',
+            'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s',
+            'pk': 'pk_%(table_name)s',
+        }),
+    ))
+
+    db = db_extensions_module.SQLAlchemy(**kwargs)
+    unchained.extensions.db = db
+
+    for module in [db_module, db_extensions_module]:
+        setattr(module, 'db', db)
+
+    EXTENSIONS = getattr(db_extensions_module, 'EXTENSIONS')
+    EXTENSIONS['db'] = db
+    setattr(db_extensions_module, 'EXTENSIONS', EXTENSIONS)
+
     yield db
 
 
@@ -29,7 +54,8 @@ def bundles(request):
 
 @pytest.fixture(autouse=True)
 def app(bundles, db_ext):
-    if bundles and 'flask_sqlalchemy_bundle' not in bundles:
+    if (bundles and 'tests._bundles.custom_extension' not in bundles
+            and 'flask_sqlalchemy_bundle' not in bundles):
         bundles.insert(0, 'flask_sqlalchemy_bundle')
     unchained._initialized = False  # reset the unchained extension
     app = AppFactory.create_app('tests._app', TEST, bundles=bundles)

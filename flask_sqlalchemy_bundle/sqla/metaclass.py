@@ -382,13 +382,15 @@ class ModelMetaOptions:
 class SQLAlchemyBaseModelMeta(DefaultMeta):
     def __new__(mcs, name, bases, clsdict):
         meta_args = MutableMetaArgs(mcs, name, bases, clsdict)
+        _model_registry._ensure_correct_base_model(meta_args)
+
         model_meta_options_class = deep_getattr(
             clsdict, bases, '_meta_options_class', ModelMetaOptions)
         model_meta_options: ModelMetaOptions = model_meta_options_class()
         model_meta_options._contribute_to_class(meta_args)
 
         if '__abstract__' in clsdict:
-            return super().__new__(mcs, name, bases, clsdict)
+            return super().__new__(*meta_args)
 
         _model_registry.register_new(meta_args)
         return super().__new__(*meta_args)
@@ -405,6 +407,8 @@ class SQLAlchemyBaseModelMeta(DefaultMeta):
 
 class _ModelRegistry:
     def __init__(self):
+        self._base_model_classes = {}
+
         # all discovered models "classes", before type.__new__ has been called:
         # - keyed by model class name
         # - order of keys signifies model class discovery order at import time
@@ -437,15 +441,19 @@ class _ModelRegistry:
         # which keys in self._models have already been initialized
         self._initialized: Set[str] = set()
 
+    def register_base_model_class(self, model):
+        self._base_model_classes[f'{model.__module__}.{model.__name__}'] = model
+
     def _reset(self):
+        self._base_model_classes = {}
         self._registry = defaultdict(dict)
         self._models = {}
         self._relationships = {}
         self._initialized = set()
 
     def register_new(self, meta_args: MutableMetaArgs):
-        if self._should_convert_bases(meta_args):
-            meta_args.bases = self._convert_bases_to_mixins(meta_args.bases)
+        if self._should_convert_bases_to_mixins(meta_args):
+            self._convert_bases_to_mixins(meta_args)
         self._registry[meta_args.name][meta_args._module] = \
             MetaNewArgs(*meta_args)
 
@@ -504,7 +512,18 @@ class _ModelRegistry:
                 if hasattr(related_model, related_attr):
                     return True
 
-    def _should_convert_bases(self, meta_args: MutableMetaArgs):
+    def _ensure_correct_base_model(self, meta_args: MutableMetaArgs):
+        if not self._base_model_classes:
+            return
+
+        correct_base = list(self._base_model_classes.values())[-1]
+        for b in meta_args.bases:
+            if issubclass(b, correct_base):
+                return
+
+        meta_args.bases = tuple([correct_base] + list(meta_args.bases))
+
+    def _should_convert_bases_to_mixins(self, meta_args: MutableMetaArgs):
         if meta_args._model_meta_options.polymorphic:
             return False
 
@@ -514,7 +533,7 @@ class _ModelRegistry:
 
         return meta_args.name in self._registry
 
-    def _convert_bases_to_mixins(self, bases):
+    def _convert_bases_to_mixins(self, meta_args: MutableMetaArgs):
         """
         For each base class in bases that the _ModelRegistry knows about, create
         a replacement class containing the methods and attributes from the base
@@ -524,21 +543,27 @@ class _ModelRegistry:
            association_proxy, etc), then turn them into @declared_attr props
         """
         def _mixin_name(name):
-            return f'{name}ConvertedMixin'
+            return f'{name}_FSQLAConvertedMixin'
 
-        new_bases = {}
-        for b in reversed(bases):
+        new_base_names = set()
+        new_bases = []
+        for b in reversed(meta_args.bases):
             if b.__name__ not in self._registry:
-                new_bases[b.__name__] = b
+                if b not in new_bases:
+                    new_bases.append(b)
                 continue
 
             _, base_name, base_bases, base_clsdict = \
                 self._registry[b.__name__][b.__module__]
 
             for bb in reversed(base_bases):
-                if (bb.__name__ not in new_bases
-                        and _mixin_name(bb.__name__) not in new_bases):
-                    new_bases[bb.__name__] = bb
+                if f'{bb.__module__}.{bb.__name__}' in self._base_model_classes:
+                    if bb not in new_bases:
+                        new_bases.append(bb)
+                elif (bb.__name__ not in new_base_names
+                        and _mixin_name(bb.__name__) not in new_base_names):
+                    new_base_names.add(bb.__name__)
+                    new_bases.append(bb)
 
             clsdict = {}
             for attr, value in base_clsdict.items():
@@ -553,9 +578,10 @@ def {attr}(self):
     return value""", {'value': value, 'declared_attr': declared_attr}, clsdict)
 
             mixin_name = _mixin_name(base_name)
-            new_bases[mixin_name] = type(mixin_name, (object,), clsdict)
+            new_bases.append(type(mixin_name, (object,), clsdict))
+            new_base_names.add(mixin_name)
 
-        return tuple(reversed(list(new_bases.values())))
+        meta_args.bases = tuple(reversed(new_bases))
 
 
 _model_registry = _ModelRegistry()

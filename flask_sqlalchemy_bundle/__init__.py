@@ -2,8 +2,9 @@ from flask_unchained import Bundle
 
 from .alembic import MaterializedViewMigration
 from .decorators import param_converter
-from .extensions import db
+from .extensions import SQLAlchemy, db
 from .services import ModelManager, SessionManager
+from .sqla import BaseModel, QueryBaseModel
 
 
 class FlaskSQLAlchemyBundle(Bundle):

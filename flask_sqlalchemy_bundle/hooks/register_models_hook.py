@@ -23,9 +23,9 @@ class RegisterModelsHook(AppFactoryHook):
         self.store.models = _model_registry.finalize_mappings()
 
     def type_check(self, obj: Any) -> bool:
-        if not inspect.isclass(obj):
+        if not inspect.isclass(obj) or not issubclass(obj, Model):
             return False
-        return issubclass(obj, Model) and not obj._meta.abstract
+        return hasattr(obj, '_meta') and not obj._meta.abstract
 
     def update_shell_context(self, ctx: dict):
         ctx.update(self.store.models)
