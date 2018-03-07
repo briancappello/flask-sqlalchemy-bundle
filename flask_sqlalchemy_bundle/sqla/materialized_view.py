@@ -1,3 +1,4 @@
+from flask_unchained import unchained
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import DDLElement
 
@@ -5,7 +6,11 @@ from sqlalchemy.schema import DDLElement
 # SQLAlchemy PostgreSQL Materialized Views
 # http://www.jeffwidman.com/blog/847/using-sqlalchemy-to-create-and-manage-postgresql-materialized-views/
 
-def _create_materialized_view(name, selectable, db):
+# the db extension must be injected both to prevent circular imports, and to
+# make sure we're getting the correct instance (if the user has overridden ours)
+
+@unchained.inject('db')
+def create_materialized_view(name, selectable, db=None):
     # must use a temporary metadata here so that SQLAlchemy doesn't detect the
     # table as "standalone". (it will still use the correct metadata once
     # attached to the __table__ attribute of the declarative base model)
@@ -39,15 +44,17 @@ def _create_materialized_view(name, selectable, db):
     return table
 
 
-def _refresh_materialized_view(name, concurrently=True, db=None):
+@unchained.inject('db')
+def refresh_materialized_view(name, concurrently=True, db=None):
     concurrently = concurrently and 'CONCURRENTLY ' or ''
     db.session.execute(f'REFRESH MATERIALIZED VIEW {concurrently}{name}')
 
 
-def _refresh_all_materialized_views(concurrently=True, db=None):
+@unchained.inject('db')
+def refresh_all_materialized_views(concurrently=True, db=None):
     materialized_views = db.inspect(db.engine).get_view_names(include='materialized')
     for materialized_view in materialized_views:
-        _refresh_materialized_view(materialized_view, concurrently, db)
+        refresh_materialized_view(materialized_view, concurrently)
 
 
 # to support using db.create_all()

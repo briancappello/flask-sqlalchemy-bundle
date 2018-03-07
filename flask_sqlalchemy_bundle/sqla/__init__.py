@@ -6,9 +6,9 @@ from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 from .base_model import BaseModel, QueryBaseModel
 from .column import Column
 from .events import attach_events, on, slugify
-from .materialized_view import (_create_materialized_view,
-                                _refresh_materialized_view,
-                                _refresh_all_materialized_views)
+from .materialized_view import (create_materialized_view,
+                                refresh_materialized_view,
+                                refresh_all_materialized_views)
 from .relationships import foreign_key
 from .types import BigInteger, DateTime
 

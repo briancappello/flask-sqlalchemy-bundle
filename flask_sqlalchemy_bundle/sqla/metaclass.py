@@ -164,7 +164,7 @@ class RelationshipsOption(ModelMetaOption):
 
     def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
         """overridden to merge with inherited value"""
-        if '__abstract__' in meta_args.clsdict:
+        if meta_args._model_meta_options.abstract:
             return None
         value = getattr(base_model_meta, self.name, {}) or {}
         value.update(getattr(meta, self.name, {}))
@@ -328,10 +328,12 @@ class ModelMetaOptions:
 
     def _contribute_to_class(self, meta_args: MutableMetaArgs):
         self._meta_args = meta_args
-        meta_args.clsdict['_meta'] = self
 
         meta = meta_args.clsdict.pop('Meta', None)
-        base_model_meta = deep_getattr({}, meta_args.bases, '_meta', None)
+        base_model_meta = deep_getattr(
+            meta_args.clsdict, meta_args.bases, '_meta', None)
+
+        meta_args.clsdict['_meta'] = self
 
         options = self._get_model_meta_options()
         if not isinstance(options[0], AbstractOption):
@@ -385,24 +387,21 @@ class SQLAlchemyBaseModelMeta(DefaultMeta):
         _model_registry._ensure_correct_base_model(meta_args)
 
         model_meta_options_class = deep_getattr(
-            clsdict, bases, '_meta_options_class', ModelMetaOptions)
+            clsdict, meta_args.bases, '_meta_options_class', ModelMetaOptions)
         model_meta_options: ModelMetaOptions = model_meta_options_class()
         model_meta_options._contribute_to_class(meta_args)
 
-        if '__abstract__' in clsdict:
+        if model_meta_options.abstract:
             return super().__new__(*meta_args)
 
         _model_registry.register_new(meta_args)
         return super().__new__(*meta_args)
 
     def __init__(cls, name, bases, clsdict):
-        is_concrete = '__abstract__' not in clsdict
-        is_lazy = is_concrete and cls._meta.lazy_mapping
-        if not is_lazy:
+        if cls._meta.abstract or not cls._meta.lazy_mapping:
             super().__init__(name, bases, clsdict)
-        if is_concrete:
-            _model_registry.register(MetaInitArgs(cls, name, bases, clsdict),
-                                     is_lazy)
+        if not cls._meta.abstract:
+            _model_registry.register(MetaInitArgs(cls, name, bases, clsdict))
 
 
 class _ModelRegistry:
@@ -457,9 +456,9 @@ class _ModelRegistry:
         self._registry[meta_args.name][meta_args._module] = \
             MetaNewArgs(*meta_args)
 
-    def register(self, meta_args: MetaInitArgs, is_lazy: bool):
+    def register(self, meta_args: MetaInitArgs):
         self._models[meta_args.name] = meta_args
-        if not is_lazy:
+        if not meta_args.cls._meta.lazy_mapping:
             self._initialized.add(meta_args.name)
 
         relationships = meta_args.cls._meta.relationships
@@ -521,6 +520,8 @@ class _ModelRegistry:
             if issubclass(b, correct_base):
                 return
 
+        meta_args.clsdict['_meta'] = \
+            deep_getattr({}, meta_args.bases, '_meta', None)
         meta_args.bases = tuple([correct_base] + list(meta_args.bases))
 
     def _should_convert_bases_to_mixins(self, meta_args: MutableMetaArgs):

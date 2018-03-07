@@ -29,7 +29,7 @@ class MaterializedViewMigration:
         # the challenge is that because the create sql for views is generated
         # from Selectable queries (instead of a Table/Model), the created views
         # can end up with slightly different representations from what the
-        # metadata thinks. maybe it's a bug in the _create_materialized_view
+        # metadata thinks. maybe it's a bug in the create_materialized_view
         # factory method?
         columns = tuple(c['name'] for c in self.columns)
         indexes = tuple(tuple((k, isinstance(v, list) and tuple(v) or v)

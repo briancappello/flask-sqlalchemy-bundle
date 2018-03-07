@@ -1,4 +1,3 @@
-from functools import partial
 from flask_sqlalchemy import (BaseQuery, DefaultMeta,
                               SQLAlchemy as BaseSQLAlchemy)
 from sqlalchemy.ext.declarative import declarative_base
@@ -32,33 +31,16 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.on = sqla.on
         self.slugify = sqla.slugify
 
-        self.include_materialized_view()
-
-        # a bit of hackery to make type-hinting in PyCharm work better
-        if False:
-            self.Column = sqla._column_type_hinter_
-            self.backref = sqla._relationship_type_hinter_
-            self.relationship = sqla._relationship_type_hinter_
-            self.create_materialized_view = sqla._create_materialized_view
-            self.refresh_materialized_view = sqla._refresh_materialized_view
-            self.refresh_all_materialized_views = sqla._refresh_all_materialized_views
-
-    def include_materialized_view(self):
-        # inject the database extension to prevent circular imports
-        self.create_materialized_view = \
-            partial(sqla._create_materialized_view, db=self)
-        self.refresh_materialized_view = \
-            partial(sqla._refresh_materialized_view, db=self)
-        self.refresh_all_materialized_views = \
-            partial(sqla._refresh_all_materialized_views, db=self)
+        self.create_materialized_view = sqla.create_materialized_view
+        self.refresh_materialized_view = sqla.refresh_materialized_view
+        self.refresh_all_materialized_views = sqla.refresh_all_materialized_views
 
         class MaterializedView(self.Model):
             class Meta:
+                abstract = True
                 pk = None
                 created_at = None
                 updated_at = None
-
-            __abstract__ = True
 
             @sqla.declared_attr
             def __tablename__(self):
@@ -66,9 +48,15 @@ class SQLAlchemy(BaseSQLAlchemy):
 
             @classmethod
             def refresh(cls, concurrently=True):
-                self.refresh_materialized_view(cls.__tablename__, concurrently)
+                sqla.refresh_materialized_view(cls.__tablename__, concurrently)
 
         self.MaterializedView = MaterializedView
+
+        # a bit of hackery to make type-hinting in PyCharm work better
+        if False:
+            self.Column = sqla._column_type_hinter_
+            self.backref = sqla._relationship_type_hinter_
+            self.relationship = sqla._relationship_type_hinter_
 
     def make_declarative_base(self, model, metadata=None) -> BaseModel:
         if not isinstance(model, DefaultMeta):
