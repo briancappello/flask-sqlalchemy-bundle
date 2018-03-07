@@ -2,6 +2,8 @@ from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from flask_unchained import pluralize, title_case
 from sqlalchemy.ext.declarative import declared_attr
 
+from .metaclass import ModelMetaOptions
+
 
 class BaseModel(FlaskSQLAlchemyBaseModel):
     """Base table class. It includes convenience methods for creating,
@@ -9,6 +11,8 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
     """
     __abstract__ = True
     __table_args__ = {'extend_existing': True}
+
+    _meta_options_class = ModelMetaOptions
 
     __repr_props__ = ()
     """Set to customize automatic string representation.

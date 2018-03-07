@@ -15,6 +15,7 @@ work, a model must declare itself extendable and/or overridable::
 import warnings
 from collections import defaultdict, namedtuple
 from flask_sqlalchemy.model import DefaultMeta, camel_to_snake_case
+from sqlalchemy import func as sa_func, types as sa_types
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
@@ -23,7 +24,7 @@ from typing import *
 
 from .column import Column
 from .relationships import foreign_key
-from .types import types as sa_types
+from .types import BigInteger, DateTime
 
 _missing = object()
 
@@ -40,30 +41,22 @@ class MutableMetaArgs:
         self.clsdict = clsdict
 
     @property
-    def module(self):
+    def _module(self):
         return self.clsdict['__module__']
 
     @property
-    def model_repr(self):
-        return f'{self.module}.{self.name}'
+    def _model_repr(self):
+        return f'{self._module}.{self.name}'
 
     @property
-    def model_meta_options(self):
+    def _model_meta_options(self):
         return self.clsdict['_meta']
-
-    @property
-    def is_base_model(self):
-        return not deep_getattr({}, self.bases, '_meta', None)
-
-    @property
-    def tablename(self):
-        return self.clsdict.get('__tablename__', camel_to_snake_case(self.name))
 
     def __iter__(self):
         return iter([self.mcs, self.name, self.bases, self.clsdict])
 
     def __repr__(self):
-        return f'<MutableMetaArgs model={self.model_repr}>'
+        return f'<MutableMetaArgs model={self._model_repr}>'
 
 
 def deep_getattr(clsdict, bases, name, default=_missing):
@@ -101,12 +94,63 @@ class ModelMetaOption:
     def check_value(self, model_meta_options, value):
         pass
 
-    def contribute_to_class(self, meta_args: MutableMetaArgs, model_meta_options):
+    def contribute_to_class(self, meta_args: MutableMetaArgs, value,
+                            model_meta_options):
         pass
 
     def __repr__(self):
         return f'<{self.__class__.__name__} name={self.name!r}, ' \
                f'value={self.default!r}, inherit={self.inherit}>'
+
+
+class ModelColumnMetaOption(ModelMetaOption):
+    def get_value(self, model_meta, base_model_meta):
+        value = super().get_value(model_meta, base_model_meta)
+        if value is True:
+            value = self.default
+        return value
+
+    def check_value(self, model_meta_options, value):
+        msg = f'{self.name} Meta option on {model_meta_options._model_repr} ' \
+              f'must be a str, bool or None'
+        assert value is None or isinstance(value, (bool, str)), msg
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, col_name,
+                            model_meta_options):
+        if (model_meta_options.polymorphic
+                and not model_meta_options._is_base_model):
+            return
+
+        if col_name and col_name not in meta_args.clsdict:
+            meta_args.clsdict[col_name] = self.get_column(model_meta_options)
+
+    def get_column(self, model_meta_options):
+        raise NotImplementedError
+
+
+class PrimaryKeyColumnOption(ModelColumnMetaOption):
+    def __init__(self, name='pk', default='id', inherit=True):
+        super().__init__(name=name, default=default, inherit=inherit)
+
+    def get_column(self, model_meta_options):
+        return Column(BigInteger, primary_key=True)
+
+
+class CreatedAtColumnOption(ModelColumnMetaOption):
+    def __init__(self, name='created_at', default='created_at', inherit=True):
+        super().__init__(name=name, default=default, inherit=inherit)
+
+    def get_column(self, model_meta_options):
+        return Column(DateTime, server_default=sa_func.now())
+
+
+class UpdatedAtColumnOption(ModelColumnMetaOption):
+    def __init__(self, name='updated_at', default='updated_at', inherit=True):
+        super().__init__(name=name, default=default, inherit=inherit)
+
+    def get_column(self, model_meta_options):
+        return Column(DateTime,
+                      server_default=sa_func.now(), onupdate=sa_func.now())
 
 
 class RelationshipsOption(ModelMetaOption):
@@ -119,7 +163,8 @@ class RelationshipsOption(ModelMetaOption):
         value.update(getattr(model_meta, self.name, self.default))
         return value
 
-    def contribute_to_class(self, meta_args: MutableMetaArgs, model_meta_options):
+    def contribute_to_class(self, meta_args: MutableMetaArgs, relationships,
+                            model_meta_options):
         _, name, bases, clsdict = meta_args
         discovered_relationships = {}
 
@@ -130,7 +175,7 @@ class RelationshipsOption(ModelMetaOption):
                     if v.backref and model_meta_options.lazy_mapping:
                         raise Exception(
                             f'Discovered a lazy-mapped backref `{k}` on '
-                            f'`{meta_args.module}.{name}`. Currently this '
+                            f'`{meta_args._module}.{name}`. Currently this '
                             'is unsupported; please use `db.relationship` with '
                             'the `back_populates` kwarg on both sides instead.')
 
@@ -138,7 +183,7 @@ class RelationshipsOption(ModelMetaOption):
             discover_relationships(vars(base))
         discover_relationships(clsdict)
 
-        model_meta_options.relationships.update(discovered_relationships)
+        relationships.update(discovered_relationships)
 
 
 class BaseTablenameOption(ModelMetaOption):
@@ -147,8 +192,60 @@ class BaseTablenameOption(ModelMetaOption):
 
     def get_value(self, model_meta, base_model_meta):
         if base_model_meta:
-            return base_model_meta._meta_args.tablename
-        return None
+            bm = base_model_meta._meta_args
+            return bm.clsdict.get('__tablename__', camel_to_snake_case(bm.name))
+
+
+class PolymorphicDiscriminatorColumn(ModelColumnMetaOption):
+    def __init__(self, name='polymorphic_on', default='discriminator'):
+        super().__init__(name=name, default=default)
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, col_name,
+                            model_meta_options):
+        if not model_meta_options.polymorphic:
+            return
+        super().contribute_to_class(meta_args, col_name, model_meta_options)
+
+        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
+        if (model_meta_options._is_base_model
+                and 'polymorphic_on' not in mapper_args):
+            mapper_args['polymorphic_on'] = meta_args.clsdict[col_name]
+        meta_args.clsdict['__mapper_args__'] = mapper_args
+
+    def get_column(self, model_meta_options):
+        return Column(sa_types.String)
+
+
+class PolymorphicJoinedPkColumn(ModelColumnMetaOption):
+    def __init__(self):
+        super().__init__(name='__ignored_joined_pk', default='this_is_ignored')
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, value,
+                            model_meta_options):
+        pk = model_meta_options.pk or 'id'
+        if (model_meta_options.polymorphic == 'joined'
+                and not model_meta_options._is_base_model
+                and pk not in meta_args.clsdict):
+            meta_args.clsdict[pk] = self.get_column(model_meta_options)
+
+    def get_column(self, model_meta_options):
+        return foreign_key(model_meta_options._base_tablename,
+                           primary_key=True, fk_col=model_meta_options.pk)
+
+
+class PolymorphicIdentityOption(ModelMetaOption):
+    def __init__(self, name='polymorphic_identity', default=None):
+        super().__init__(name=name, default=default, inherit=False)
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, identifier,
+                            model_meta_options):
+        if not model_meta_options.polymorphic:
+            return
+
+        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
+        if 'polymorphic_identity' not in mapper_args:
+            mapper_args['polymorphic_identity'] = identifier or meta_args.name
+        meta_args.clsdict['__mapper_args__'] = mapper_args
 
 
 class PolymorphicOption(ModelMetaOption):
@@ -165,36 +262,16 @@ class PolymorphicOption(ModelMetaOption):
         valid = ['joined', 'single', True, False]
         msg = '{name} Meta option on {model} must be one of {choices}'.format(
             name=self.name,
-            model=model_meta_options._meta_args.model_repr,
+            model=model_meta_options._model_repr,
             choices=', '.join(f'{c!r}' for c in valid))
         assert value in valid, msg
-
-    def contribute_to_class(self, meta_args: MutableMetaArgs, model_meta_options):
-        polymorphic_type = model_meta_options.polymorphic
-        if not polymorphic_type:
-            return
-
-        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
-        if meta_args.is_base_model:
-            discriminator = Column(sa_types.String)
-            meta_args.clsdict['discriminator'] = discriminator
-            mapper_args['polymorphic_on'] = discriminator
-        else:
-            if polymorphic_type == 'joined' and 'id' not in meta_args.clsdict:
-                meta_args.clsdict['id'] = foreign_key(
-                    model_meta_options._base_tablename, primary_key=True)
-
-        if 'polymorphic_identity' not in mapper_args:
-            mapper_args['polymorphic_identity'] = meta_args.name
-
-        meta_args.clsdict['__mapper_args__'] = mapper_args
 
 
 class ModelMetaOptions:
     def __init__(self):
         self._meta_args: MutableMetaArgs = None
 
-    def get_model_meta_options(self) -> List[ModelMetaOption]:
+    def _get_model_meta_options(self) -> List[ModelMetaOption]:
         """"
         Define fields allowed in the Meta class on end-user models, and the
         behavior of each.
@@ -202,14 +279,25 @@ class ModelMetaOptions:
         Custom ModelMetaOptions classes should override this method to customize
         the options supported on class Meta of end-user models.
         """
+        # when options require another option, its dependent must be listed.
+        # options in this list are not order-dependent, except where noted.
         return [
             ModelMetaOption('lazy_mapping', default=False, inherit=True),
-            RelationshipsOption(),  # must be after lazy_mapping
+            RelationshipsOption(),  # requires lazy_mapping
             BaseTablenameOption(),
-            PolymorphicOption(),  # must be after BaseTablenameOption
+            PolymorphicDiscriminatorColumn(),
+            PolymorphicIdentityOption(),
+            PolymorphicJoinedPkColumn(),
+            PolymorphicOption(),  # must be after PolymorphicDiscriminatorColumn
+                                  # requires BaseTablenameOption
+
+            # all ModelColumnMetaOption subclasses require PolymorphicOption
+            PrimaryKeyColumnOption(),  # must be after PolymorphicJoinedPkColumn
+            CreatedAtColumnOption(),
+            UpdatedAtColumnOption(),
         ]
 
-    def contribute_to_class(self, meta_args: MutableMetaArgs):
+    def _contribute_to_class(self, meta_args: MutableMetaArgs):
         self._meta_args = meta_args
 
         meta = meta_args.clsdict.pop('Meta', None)
@@ -218,15 +306,16 @@ class ModelMetaOptions:
         meta_args.clsdict['_meta'] = self
         self._fill_from_meta(meta, base_model_meta)
 
-        for option in self.get_model_meta_options():
-            option.contribute_to_class(meta_args, self)
+        for option in self._get_model_meta_options():
+            option.contribute_to_class(meta_args,
+                                       getattr(self, option.name), self)
 
     def _fill_from_meta(self, meta, base_model_meta):
         # Exclude private/protected fields from the meta
         meta_attrs = {} if not meta else {k: v for k, v in vars(meta).items()
                                           if not k.startswith('_')}
 
-        for option in self.get_model_meta_options():
+        for option in self._get_model_meta_options():
             assert not hasattr(self, option.name), \
                 f"Can't override field {option.name}."
             value = option.get_value(meta, base_model_meta)
@@ -237,15 +326,23 @@ class ModelMetaOptions:
         if meta_attrs:
             # Some attributes in the Meta aren't allowed here
             raise TypeError(
-                f"'class Meta' for {self._meta_args.model_repr!r} got unknown "
+                f"'class Meta' for {self._model_repr!r} got unknown "
                 f"attribute(s) {','.join(sorted(meta_attrs.keys()))}")
+
+    @property
+    def _is_base_model(self):
+        return not deep_getattr({}, self._meta_args.bases, '_meta', None)
+
+    @property
+    def _model_repr(self):
+        return self._meta_args._model_repr
 
     def __repr__(self):
         return '<{cls} model={model!r} model_meta_options={attrs!r}>'.format(
             cls=self.__class__.__name__,
-            model=self._meta_args.model_repr,
+            model=self._model_repr,
             attrs={option.name: getattr(self, option.name)
-                   for option in self.get_model_meta_options()})
+                   for option in self._get_model_meta_options()})
 
 
 class SQLAlchemyBaseModelMeta(DefaultMeta):
@@ -256,9 +353,9 @@ class SQLAlchemyBaseModelMeta(DefaultMeta):
         meta_args = MutableMetaArgs(mcs, name, bases, clsdict)
 
         model_meta_options_class = deep_getattr(
-            clsdict, bases, '_model_meta_options_class', ModelMetaOptions)
+            clsdict, bases, '_meta_options_class', ModelMetaOptions)
         model_meta_options: ModelMetaOptions = model_meta_options_class()
-        model_meta_options.contribute_to_class(meta_args)
+        model_meta_options._contribute_to_class(meta_args)
 
         _model_registry.register_new(meta_args)
         return super().__new__(*meta_args)
@@ -316,7 +413,7 @@ class _ModelRegistry:
     def register_new(self, meta_args: MutableMetaArgs):
         if self._should_convert_bases(meta_args):
             meta_args.bases = self._convert_bases_to_mixins(meta_args.bases)
-        self._registry[meta_args.name][meta_args.module] = \
+        self._registry[meta_args.name][meta_args._module] = \
             MetaNewArgs(*meta_args)
 
     def register(self, meta_args: MetaInitArgs, is_lazy: bool):
@@ -375,7 +472,7 @@ class _ModelRegistry:
                     return True
 
     def _should_convert_bases(self, meta_args: MutableMetaArgs):
-        if meta_args.model_meta_options.polymorphic:
+        if meta_args._model_meta_options.polymorphic:
             return False
 
         for b in meta_args.bases:
