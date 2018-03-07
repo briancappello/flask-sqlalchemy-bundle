@@ -25,12 +25,7 @@ class RegisterModelsHook(AppFactoryHook):
     def type_check(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
             return False
-        return issubclass(obj, db.BaseModel) and obj not in {
-            db.BaseModel,
-            db.Model,
-            db.PrimaryKeyModel,
-            db.MaterializedView,
-        }
+        return issubclass(obj, db.Model) and obj != db.Model
 
     def update_shell_context(self, ctx: dict):
         ctx.update(self.store.models)

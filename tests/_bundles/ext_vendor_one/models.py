@@ -13,7 +13,7 @@ class OneBasic(BaseOneBasic):
 
 
 # test overriding OneParent to remove the children relationship
-class OneParent(db.PrimaryKeyModel):
+class OneParent(db.Model):
     class Meta:
         lazy_mapping = True
 
@@ -22,7 +22,7 @@ class OneParent(db.PrimaryKeyModel):
 
 # test overriding OneUser and OneRole to change the roles relationship to be
 # one-to-many instead of many-to-many
-class OneUser(db.PrimaryKeyModel):
+class OneUser(db.Model):
     class Meta:
         lazy_mapping = True
 
@@ -31,7 +31,7 @@ class OneUser(db.PrimaryKeyModel):
     roles = db.relationship('OneRole', back_populates='user')
 
 
-class OneRole(db.PrimaryKeyModel):
+class OneRole(db.Model):
     class Meta:
         lazy_mapping = True
 

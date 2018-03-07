@@ -1,6 +1,7 @@
 from functools import partial
-from flask_sqlalchemy import SQLAlchemy as BaseSQLAlchemy, BaseQuery
-from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
+from flask_sqlalchemy import (BaseQuery, DefaultMeta,
+                              SQLAlchemy as BaseSQLAlchemy)
+from sqlalchemy.ext.declarative import declarative_base
 
 from .. import sqla
 from ..sqla import BaseModel
@@ -12,17 +13,7 @@ class SQLAlchemy(BaseSQLAlchemy):
                  metadata=None, query_class=BaseQuery, model_class=BaseModel):
         super().__init__(app, use_native_unicode, session_options,
                          metadata, query_class, model_class)
-        self.BaseModel = self.make_declarative_base(BaseModel, metadata)
-
-        class Model(sqla.TimestampMixin, self.BaseModel):
-            __abstract__ = True
-            __repr_props__ = ('created_at', 'updated_at')
-        self.Model = Model
-
-        class PrimaryKeyModel(sqla.PrimaryKeyMixin, self.Model):
-            __abstract__ = True
-            __repr_props__ = ('id', 'created_at', 'updated_at')
-        self.PrimaryKeyModel = PrimaryKeyModel
+        self.Model = self.make_declarative_base(BaseModel, metadata)
 
         self.Column = sqla.Column
         self.BigInteger = sqla.BigInteger
@@ -58,7 +49,7 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.refresh_all_materialized_views = \
             partial(sqla._refresh_all_materialized_views, db=self)
 
-        class MaterializedView(self.BaseModel):
+        class MaterializedView(self.Model):
             __abstract__ = True
 
             @sqla.declared_attr
@@ -72,14 +63,14 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.MaterializedView = MaterializedView
 
     def make_declarative_base(self, model, metadata=None) -> BaseModel:
-        if not isinstance(model, DeclarativeMeta):
+        if not isinstance(model, DefaultMeta):
             def abstract_model_meta(name, bases, clsdict):
                 clsdict['__abstract__'] = True
                 return SQLAlchemyBaseModelMeta(name, bases, clsdict)
 
             model = declarative_base(
                 cls=model,
-                name='BaseModel',
+                name='Model',
                 metadata=metadata,
                 metaclass=abstract_model_meta,
             )

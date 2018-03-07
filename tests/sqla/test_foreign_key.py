@@ -3,7 +3,7 @@ from flask_sqlalchemy_bundle.sqla.relationships import foreign_key
 
 
 def test_it_works_with_a_class():
-    class FakeModel(db.PrimaryKeyModel):
+    class FakeModel(db.Model):
         __tablename__ = 'custom_tablename'
     col = foreign_key(FakeModel)
     assert col.name is None

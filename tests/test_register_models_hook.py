@@ -6,6 +6,7 @@ from flask_unchained import unchained
 from flask_sqlalchemy_bundle import db
 from flask_sqlalchemy_bundle.hooks import RegisterModelsHook, Store
 
+from ._bundles.app import MyAppBundle
 from ._bundles.backref import BackrefBundle
 from ._bundles.vendor_one import VendorOneBundle
 from ._bundles.ext_vendor_one import ExtVendorOneBundle
@@ -20,12 +21,18 @@ def hook():
     return RegisterModelsHook(unchained, store)
 
 
-def _to_dict(models: List[Type[db.BaseModel]]) -> Dict[str, Type[db.BaseModel]]:
+def _to_dict(models: List[Type[db.Model]]) -> Dict[str, Type[db.Model]]:
     return {model.__name__: model for model in models}
 
 
-def _to_metadata_tables(models: Dict[str, Type[db.BaseModel]]):
+def _to_metadata_tables(models: Dict[str, Type[db.Model]]):
     return {model.__tablename__: model.__table__ for model in models.values()}
+
+
+def get_app_models():
+    from ._bundles.app.models import TwoBasic
+    return {**get_vendor_one_models(), **get_vendor_two_models(),
+            **_to_dict([TwoBasic])}
 
 
 def get_vendor_one_models():
@@ -81,27 +88,15 @@ class TestRegisterModelsHookTypeCheck:
         assert hook.type_check(db) is False
         assert hook.type_check(VendorOneBundle) is False
 
-    def test_type_check__base_model(self, hook: RegisterModelsHook):
-        class BM(db.BaseModel):
-            id = db.Column(db.Integer, primary_key=True)
-        assert hook.type_check(db.BaseModel) is False
-        assert hook.type_check(BM)
-
-    def test_type_check_base_model(self, hook: RegisterModelsHook):
+    def test_type_check_model(self, hook: RegisterModelsHook):
         class M(db.Model):
-            id = db.Column(db.Integer, primary_key=True)
+            pass
         assert hook.type_check(db.Model) is False
         assert hook.type_check(M)
 
-    def test_type_check_model(self, hook: RegisterModelsHook):
-        class PKM(db.PrimaryKeyModel):
-            pass
-        assert hook.type_check(db.PrimaryKeyModel) is False
-        assert hook.type_check(PKM)
-
     # FIXME: requires PostgreSQL
     # def test_type_check_materialized_view(self, hook: RegisterModelsHook):
-    #     class MVT(db.PrimaryKeyModel):
+    #     class MVT(db.Model):
     #         name = db.Column(db.Integer, primary_key=True)
     #
     #     class MV(db.MaterializedView):
@@ -156,5 +151,11 @@ class TestRegisterModelsHookCollectFromBundle:
     def test_it_works_with_polymorphic(self, db, hook: RegisterModelsHook):
         hook.run_hook(None, [PolymorphicBundle])
         expected = get_polymorphic_models()
+        assert hook.store.models == expected
+        assert db.metadata.tables == _to_metadata_tables(expected)
+
+    def test_app_bundle_overrides_others(self, db, hook: RegisterModelsHook):
+        hook.run_hook(None, [VendorOneBundle, VendorTwoBundle, MyAppBundle])
+        expected = get_app_models()
         assert hook.store.models == expected
         assert db.metadata.tables == _to_metadata_tables(expected)

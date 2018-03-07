@@ -1,14 +1,14 @@
 from flask_sqlalchemy_bundle import db
 
 
-class OneBasic(db.PrimaryKeyModel):
+class OneBasic(db.Model):
     class Meta:
         lazy_mapping = True
 
     name = db.Column(db.String)
 
 
-class OneParent(db.PrimaryKeyModel):
+class OneParent(db.Model):
     class Meta:
         lazy_mapping = True
         relationships = {'OneChild': 'children'}
@@ -18,7 +18,7 @@ class OneParent(db.PrimaryKeyModel):
     children = db.relationship('OneChild', back_populates='parent')
 
 
-class OneChild(db.PrimaryKeyModel):
+class OneChild(db.Model):
     class Meta:
         lazy_mapping = True
         relationships = {'OneParent': 'parent'}
@@ -33,6 +33,7 @@ class OneUserRole(db.Model):
     """Join table between User and Role"""
     class Meta:
         lazy_mapping = True
+        pk = None
         relationships = {'OneUser': 'user',
                          'OneRole': 'role'}
 
@@ -52,7 +53,7 @@ class OneUserRole(db.Model):
             self.role = role
 
 
-class OneUser(db.PrimaryKeyModel):
+class OneUser(db.Model):
     class Meta:
         lazy_mapping = True
         relationships = {'OneUserRole': 'user_roles'}
@@ -65,7 +66,7 @@ class OneUser(db.PrimaryKeyModel):
                                  creator=lambda role: OneUserRole(role=role))
 
 
-class OneRole(db.PrimaryKeyModel):
+class OneRole(db.Model):
     class Meta:
         lazy_mapping = True
         relationships = {'OneUserRole': 'role_users'}

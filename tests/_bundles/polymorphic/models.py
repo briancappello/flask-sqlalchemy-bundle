@@ -1,7 +1,7 @@
 from flask_sqlalchemy_bundle import db
 
 
-class Person(db.PrimaryKeyModel):
+class Person(db.Model):
     class Meta:
         polymorphic = True
 

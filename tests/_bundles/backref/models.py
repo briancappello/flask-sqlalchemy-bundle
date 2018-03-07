@@ -1,7 +1,7 @@
 from flask_sqlalchemy_bundle import db
 
 
-class OneRelationship(db.PrimaryKeyModel):
+class OneRelationship(db.Model):
     class Meta:
         lazy_mapping = True
 
@@ -9,7 +9,7 @@ class OneRelationship(db.PrimaryKeyModel):
     backrefs = db.relationship('OneBackref', backref=db.backref('relationship'))
 
 
-class OneBackref(db.PrimaryKeyModel):
+class OneBackref(db.Model):
     class Meta:
         lazy_mapping = True
 

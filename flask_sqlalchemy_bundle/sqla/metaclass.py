@@ -6,7 +6,7 @@ bundle subclass (or the user's app bundle) to extend or override models from
 other bundles by defining a new model with the same name. In order for this to
 work, a model must declare itself extendable and/or overridable::
 
-    class SomeModel(db.PrimaryKeyModel):
+    class SomeModel(db.Model):
         class Meta:
             lazy_mapping = True
 
@@ -486,7 +486,7 @@ class _ModelRegistry:
         For each base class in bases that the _ModelRegistry knows about, create
         a replacement class containing the methods and attributes from the base
         class:
-         - the mixin should only extend object (not db.PrimaryKeyModel)
+         - the mixin should only extend object (not db.Model)
          - if any of the attributes are MapperProperty instances (relationship,
            association_proxy, etc), then turn them into @declared_attr props
         """

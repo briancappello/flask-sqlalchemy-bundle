@@ -5,17 +5,17 @@ from ..extensions import db
 
 
 class SessionManager(BaseService):
-    def add(self, instance: db.BaseModel, commit: bool = False):
+    def add(self, instance: db.Model, commit: bool = False):
         db.session.add(instance)
         if commit:
             self.commit()
 
-    def add_all(self, instances: List[db.BaseModel], commit: bool = False):
+    def add_all(self, instances: List[db.Model], commit: bool = False):
         db.session.add_all(instances)
         if commit:
             self.commit()
 
-    def delete(self, instance: db.BaseModel, commit: bool = False):
+    def delete(self, instance: db.Model, commit: bool = False):
         db.session.delete(instance)
         if commit:
             self.commit()
