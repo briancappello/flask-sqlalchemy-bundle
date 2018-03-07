@@ -42,11 +42,13 @@ class MutableMetaArgs:
 
     @property
     def _module(self):
-        return self.clsdict['__module__']
+        return self.clsdict.get('__module__')
 
     @property
     def _model_repr(self):
-        return f'{self._module}.{self.name}'
+        if self._module:
+            return f'{self._module}.{self.name}'
+        return self.name
 
     @property
     def _model_meta_options(self):
@@ -78,20 +80,22 @@ class ModelMetaOption:
         self.default = default
         self.inherit = inherit
 
-    def get_value(self, model_meta, base_model_meta):
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
         """
-        :param model_meta: the class Meta (if any) from the user's model (NOTE:
-            this is NOT an instance of ModelMetaOptions)
-        :param base_model_meta: the ModelMetaOptions from the user's model's base class
+        :param meta: the class Meta (if any) from the user's model (NOTE:
+            this will be a plain object, NOT an instance of ModelMetaOptions)
+        :param base_model_meta: the ModelMetaOptions (if any) from the
+            base class of the user's model
+        :param meta_args: the MutableMetaArgs for the user's model class
         """
         value = self.default
         if self.inherit and base_model_meta is not None:
             value = getattr(base_model_meta, self.name, value)
-        if model_meta is not None:
-            value = getattr(model_meta, self.name, value)
+        if meta is not None:
+            value = getattr(meta, self.name, value)
         return value
 
-    def check_value(self, model_meta_options, value):
+    def check_value(self, value, model_meta_options):
         pass
 
     def contribute_to_class(self, meta_args: MutableMetaArgs, value,
@@ -104,13 +108,13 @@ class ModelMetaOption:
 
 
 class ModelColumnMetaOption(ModelMetaOption):
-    def get_value(self, model_meta, base_model_meta):
-        value = super().get_value(model_meta, base_model_meta)
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        value = super().get_value(meta, base_model_meta, meta_args)
         if value is True:
             value = self.default
         return value
 
-    def check_value(self, model_meta_options, value):
+    def check_value(self, value, model_meta_options):
         msg = f'{self.name} Meta option on {model_meta_options._model_repr} ' \
               f'must be a str, bool or None'
         assert value is None or isinstance(value, (bool, str)), msg
@@ -157,10 +161,10 @@ class RelationshipsOption(ModelMetaOption):
     def __init__(self):
         super().__init__('relationships', default={}, inherit=True)
 
-    def get_value(self, model_meta, base_model_meta):
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
         """overridden to merge with inherited value"""
         value = getattr(base_model_meta, self.name, self.default)
-        value.update(getattr(model_meta, self.name, self.default))
+        value.update(getattr(meta, self.name, self.default))
         return value
 
     def contribute_to_class(self, meta_args: MutableMetaArgs, relationships,
@@ -190,8 +194,8 @@ class BaseTablenameOption(ModelMetaOption):
     def __init__(self):
         super().__init__('_base_tablename', default=None, inherit=False)
 
-    def get_value(self, model_meta, base_model_meta):
-        if base_model_meta:
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        if base_model_meta and not base_model_meta.abstract:
             bm = base_model_meta._meta_args
             return bm.clsdict.get('__tablename__', camel_to_snake_case(bm.name))
 
@@ -252,19 +256,34 @@ class PolymorphicOption(ModelMetaOption):
     def __init__(self):
         super().__init__('polymorphic', default=False, inherit=True)
 
-    def get_value(self, model_meta, base_model_meta):
-        value = super().get_value(model_meta, base_model_meta)
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        value = super().get_value(meta, base_model_meta, meta_args)
         if value and not isinstance(value, str):
             return 'joined'
         return value
 
-    def check_value(self, model_meta_options, value):
+    def check_value(self, value, model_meta_options):
         valid = ['joined', 'single', True, False]
         msg = '{name} Meta option on {model} must be one of {choices}'.format(
             name=self.name,
             model=model_meta_options._model_repr,
             choices=', '.join(f'{c!r}' for c in valid))
         assert value in valid, msg
+
+
+class AbstractOption(ModelMetaOption):
+    def __init__(self):
+        super().__init__(name='abstract', default=False, inherit=False)
+
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        if '__abstract__' in meta_args.clsdict:
+            return True
+        return super().get_value(meta, base_model_meta, meta_args)
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, is_abstract,
+                            model_meta_options):
+        if is_abstract:
+            meta_args.clsdict['__abstract__'] = True
 
 
 class ModelMetaOptions:
@@ -282,6 +301,7 @@ class ModelMetaOptions:
         # when options require another option, its dependent must be listed.
         # options in this list are not order-dependent, except where noted.
         return [
+            AbstractOption(),  # must be first
             ModelMetaOption('lazy_mapping', default=False, inherit=True),
             RelationshipsOption(),  # requires lazy_mapping
             BaseTablenameOption(),
@@ -299,14 +319,22 @@ class ModelMetaOptions:
 
     def _contribute_to_class(self, meta_args: MutableMetaArgs):
         self._meta_args = meta_args
+        meta_args.clsdict['_meta'] = self
 
         meta = meta_args.clsdict.pop('Meta', None)
         base_model_meta = deep_getattr({}, meta_args.bases, '_meta', None)
 
-        meta_args.clsdict['_meta'] = self
-        self._fill_from_meta(meta, base_model_meta)
+        options = self._get_model_meta_options()
+        if not isinstance(options[0], AbstractOption):
+            raise Exception('The first option in _get_model_meta_options '
+                            'must be an instance of AbstractOption')
+        self.abstract = options[0].get_value(meta, base_model_meta, meta_args)
+        options[0].contribute_to_class(meta_args, self.abstract, self)
+        if self.abstract:
+            return
 
-        for option in self._get_model_meta_options():
+        self._fill_from_meta(meta, base_model_meta)
+        for option in options[1:]:
             option.contribute_to_class(meta_args,
                                        getattr(self, option.name), self)
 
@@ -315,11 +343,11 @@ class ModelMetaOptions:
         meta_attrs = {} if not meta else {k: v for k, v in vars(meta).items()
                                           if not k.startswith('_')}
 
-        for option in self._get_model_meta_options():
+        for option in self._get_model_meta_options()[1:]:
             assert not hasattr(self, option.name), \
                 f"Can't override field {option.name}."
-            value = option.get_value(meta, base_model_meta)
-            option.check_value(self, value)
+            value = option.get_value(meta, base_model_meta, self._meta_args)
+            option.check_value(value, self)
             meta_attrs.pop(option.name, None)
             setattr(self, option.name, value)
 
@@ -331,7 +359,8 @@ class ModelMetaOptions:
 
     @property
     def _is_base_model(self):
-        return not deep_getattr({}, self._meta_args.bases, '_meta', None)
+        base_meta = deep_getattr({}, self._meta_args.bases, '_meta')
+        return base_meta.abstract
 
     @property
     def _model_repr(self):
@@ -347,15 +376,14 @@ class ModelMetaOptions:
 
 class SQLAlchemyBaseModelMeta(DefaultMeta):
     def __new__(mcs, name, bases, clsdict):
-        if '__abstract__' in clsdict:
-            return super().__new__(mcs, name, bases, clsdict)
-
         meta_args = MutableMetaArgs(mcs, name, bases, clsdict)
-
         model_meta_options_class = deep_getattr(
             clsdict, bases, '_meta_options_class', ModelMetaOptions)
         model_meta_options: ModelMetaOptions = model_meta_options_class()
         model_meta_options._contribute_to_class(meta_args)
+
+        if '__abstract__' in clsdict:
+            return super().__new__(mcs, name, bases, clsdict)
 
         _model_registry.register_new(meta_args)
         return super().__new__(*meta_args)

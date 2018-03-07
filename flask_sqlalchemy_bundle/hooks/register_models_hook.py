@@ -2,10 +2,10 @@ import inspect
 import sys
 
 from flask import Flask
+from flask_sqlalchemy import Model
 from flask_unchained import AppFactoryHook
 from typing import *
 
-from ..extensions import db
 from ..sqla.metaclass import _model_registry
 
 
@@ -25,7 +25,7 @@ class RegisterModelsHook(AppFactoryHook):
     def type_check(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
             return False
-        return issubclass(obj, db.Model) and obj != db.Model
+        return issubclass(obj, Model) and not obj._meta.abstract
 
     def update_shell_context(self, ctx: dict):
         ctx.update(self.store.models)

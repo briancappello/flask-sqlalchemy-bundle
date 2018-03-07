@@ -3,7 +3,7 @@ from typing import *
 
 from flask_unchained import unchained
 
-from flask_sqlalchemy_bundle import db
+from flask_sqlalchemy import Model
 from flask_sqlalchemy_bundle.hooks import RegisterModelsHook, Store
 
 from ._bundles.app import MyAppBundle
@@ -21,11 +21,11 @@ def hook():
     return RegisterModelsHook(unchained, store)
 
 
-def _to_dict(models: List[Type[db.Model]]) -> Dict[str, Type[db.Model]]:
+def _to_dict(models: List[Type[Model]]) -> Dict[str, Type[Model]]:
     return {model.__name__: model for model in models}
 
 
-def _to_metadata_tables(models: Dict[str, Type[db.Model]]):
+def _to_metadata_tables(models: Dict[str, Type[Model]]):
     return {model.__tablename__: model.__table__ for model in models.values()}
 
 
@@ -85,10 +85,10 @@ class TestRegisterModelsHookTypeCheck:
         assert hook.type_check(42.0) is False
         assert hook.type_check(None) is False
         assert hook.type_check(lambda x: x) is False
-        assert hook.type_check(db) is False
+        assert hook.type_check(unchained) is False
         assert hook.type_check(VendorOneBundle) is False
 
-    def test_type_check_model(self, hook: RegisterModelsHook):
+    def test_type_check_model(self, db, hook: RegisterModelsHook):
         class M(db.Model):
             pass
         assert hook.type_check(db.Model) is False
