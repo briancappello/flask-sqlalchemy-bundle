@@ -121,8 +121,9 @@ class ModelColumnMetaOption(ModelMetaOption):
 
     def contribute_to_class(self, meta_args: MutableMetaArgs, col_name,
                             model_meta_options):
-        if (model_meta_options.polymorphic
-                and not model_meta_options._is_base_model):
+        if (model_meta_options.abstract
+                or (model_meta_options.polymorphic
+                    and not model_meta_options._is_base_model)):
             return
 
         if col_name and col_name not in meta_args.clsdict:
@@ -159,17 +160,21 @@ class UpdatedAtColumnOption(ModelColumnMetaOption):
 
 class RelationshipsOption(ModelMetaOption):
     def __init__(self):
-        super().__init__('relationships', default={}, inherit=True)
+        super().__init__('relationships', inherit=True)
 
     def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
         """overridden to merge with inherited value"""
-        value = getattr(base_model_meta, self.name, self.default)
-        value.update(getattr(meta, self.name, self.default))
+        if '__abstract__' in meta_args.clsdict:
+            return None
+        value = getattr(base_model_meta, self.name, {}) or {}
+        value.update(getattr(meta, self.name, {}))
         return value
 
     def contribute_to_class(self, meta_args: MutableMetaArgs, relationships,
                             model_meta_options):
-        _, name, bases, clsdict = meta_args
+        if model_meta_options.abstract:
+            return
+
         discovered_relationships = {}
 
         def discover_relationships(d):
@@ -179,13 +184,13 @@ class RelationshipsOption(ModelMetaOption):
                     if v.backref and model_meta_options.lazy_mapping:
                         raise Exception(
                             f'Discovered a lazy-mapped backref `{k}` on '
-                            f'`{meta_args._module}.{name}`. Currently this '
+                            f'`{meta_args._model_repr}`. Currently this '
                             'is unsupported; please use `db.relationship` with '
                             'the `back_populates` kwarg on both sides instead.')
 
-        for base in bases:
+        for base in meta_args.bases:
             discover_relationships(vars(base))
-        discover_relationships(clsdict)
+        discover_relationships(meta_args.clsdict)
 
         relationships.update(discovered_relationships)
 
@@ -226,6 +231,9 @@ class PolymorphicJoinedPkColumn(ModelColumnMetaOption):
 
     def contribute_to_class(self, meta_args: MutableMetaArgs, value,
                             model_meta_options):
+        if model_meta_options.abstract:
+            return
+
         pk = model_meta_options.pk or 'id'
         if (model_meta_options.polymorphic == 'joined'
                 and not model_meta_options._is_base_model
@@ -301,9 +309,10 @@ class ModelMetaOptions:
         # when options require another option, its dependent must be listed.
         # options in this list are not order-dependent, except where noted.
         return [
-            AbstractOption(),  # must be first
+            AbstractOption(),  # required; must be first
             ModelMetaOption('lazy_mapping', default=False, inherit=True),
             RelationshipsOption(),  # requires lazy_mapping
+
             BaseTablenameOption(),
             PolymorphicDiscriminatorColumn(),
             PolymorphicIdentityOption(),
@@ -328,13 +337,9 @@ class ModelMetaOptions:
         if not isinstance(options[0], AbstractOption):
             raise Exception('The first option in _get_model_meta_options '
                             'must be an instance of AbstractOption')
-        self.abstract = options[0].get_value(meta, base_model_meta, meta_args)
-        options[0].contribute_to_class(meta_args, self.abstract, self)
-        if self.abstract:
-            return
 
         self._fill_from_meta(meta, base_model_meta)
-        for option in options[1:]:
+        for option in options:
             option.contribute_to_class(meta_args,
                                        getattr(self, option.name), self)
 
@@ -343,7 +348,7 @@ class ModelMetaOptions:
         meta_attrs = {} if not meta else {k: v for k, v in vars(meta).items()
                                           if not k.startswith('_')}
 
-        for option in self._get_model_meta_options()[1:]:
+        for option in self._get_model_meta_options():
             assert not hasattr(self, option.name), \
                 f"Can't override field {option.name}."
             value = option.get_value(meta, base_model_meta, self._meta_args)
