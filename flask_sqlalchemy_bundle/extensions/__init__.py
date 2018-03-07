@@ -12,10 +12,10 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
     'pk': 'pk_%(table_name)s',
 }))
 
-migrate = Migrate(db=db)
+migrate = Migrate()
 
 
 EXTENSIONS = {
-    'migrate': (migrate, ['db']),
     'db': db,
+    'migrate': (migrate, ['db']),
 }
