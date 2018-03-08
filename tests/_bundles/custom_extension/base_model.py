@@ -28,7 +28,7 @@ class CustomModelMetaOptions(ModelMetaFactory):
 
 
 class Model(BaseModel):
-    _meta_options_class = CustomModelMetaOptions
+    _meta_factory_class = CustomModelMetaOptions
 
     class Meta:
         abstract = True
