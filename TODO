@@ -1,0 +1,29 @@
+* better docs for individual meta options (docstrings would be a good start)
+
+* tests for individual meta options
+    > make sure meta options don't interfere with the stock SQLA way of doing things
+
+* test to make sure meta options on base classes get correctly merged when using a custom base model, eg:
+
+    flask_sqlalchemy_bundle.BaseModel:
+        class Meta:
+            some_option = False
+            another = False
+
+    custom_extension.CustomBaseModel(flask_sqlalchemy_bundle.BaseModel):
+        class Meta:
+            another = True
+            a_third = True
+
+    >> make sure the resulting base meta is some_option=False, another=True, a_third=True
+
+* investigate if it's possible to improve the slugify/events experience by using meta options
+
+* improve reversible op migrations (only used by materialized views at the moment)
+  - pretty sure it needs some kind of way to lookup which revision contains the
+    prior reversible op declaration for the table that's being migrated
+
+* improve docs for performing data migrations, dealing with nullable -> not null, etc
+
+* document lazy_mapped, bundle inheritance and overriding behavior
+    > esp quirks regarding relationships and backref
