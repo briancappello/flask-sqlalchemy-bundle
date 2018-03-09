@@ -64,6 +64,10 @@ class SQLAlchemy(BaseSQLAlchemy):
             def make_model_metaclass(name, bases, clsdict):
                 clsdict['__abstract__'] = True
                 clsdict['__module__'] = model.__module__
+                if hasattr(model, 'Meta'):
+                    clsdict['Meta'] = model.Meta
+                if hasattr(model, '_meta_factory_class'):
+                    clsdict['_meta_factory_class'] = model._meta_factory_class
                 return BaseModelMetaclass(name, bases, clsdict)
 
             model = declarative_base(

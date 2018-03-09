@@ -12,6 +12,16 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
     __abstract__ = True
     __table_args__ = {'extend_existing': True}
 
+    class Meta:
+        pk = 'id'
+        created_at = 'created_at'
+        updated_at = 'updated_at'
+        polymorphic = False
+
+        # this is strictly for testing meta class stuffs
+        _testing_ = 'this setting is only available when ' \
+                    'os.getenv("FLASK_ENV") == "test"'
+
     _meta_factory_class = ModelMetaFactory
 
     __repr_props__ = ()

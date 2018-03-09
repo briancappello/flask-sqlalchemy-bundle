@@ -8,6 +8,7 @@ from tests._bundles.custom_extension.extensions import (
 
 
 @pytest.mark.bundles(['tests._bundles.custom_extension',
+                      'tests._bundles.ext_vendor_one',
                       'tests._bundles.vendor_two'])
 @pytest.mark.usefixtures('app', 'db')
 class TestCustomExtension:
@@ -19,6 +20,21 @@ class TestCustomExtension:
 
     def test_it_uses_the_correct_base_model(self, db):
         assert issubclass(db.Model, CustomModel)
+        assert issubclass(db.MaterializedView, CustomModel)
+
+        from ._bundles.ext_vendor_one.models import OneBasic, OneRole
+        assert issubclass(OneBasic, CustomModel)
+        assert issubclass(OneRole, CustomModel)
 
         from ._bundles.vendor_two.models import TwoBasic
         assert issubclass(TwoBasic, CustomModel)
+
+    def test_base_model_meta_options_are_correct(self, db):
+        assert db.Model._meta.extend_existing is True
+        assert db.Model._meta.pk == 'pk'
+        assert db.Model._meta._testing_ == 'overriding the default'
+
+        assert db.MaterializedView._meta.pk is None
+        assert db.MaterializedView._meta.created_at is None
+        assert db.MaterializedView._meta.updated_at is None
+        assert db.Model._meta._testing_ == 'overriding the default'

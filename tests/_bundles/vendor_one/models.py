@@ -70,9 +70,7 @@ class OneRole(db.Model):
         lazy_mapped = True
         # relationships = {'OneUserRole': 'role_users'}
 
-    # FIXME with a custom extension, this is broken when a column has index=True
-    # it works outside of these tests, under normal circumstances in user app bundles
-    name = db.Column(db.String)
+    name = db.Column(db.String, unique=True, index=True)
 
     role_users = db.relationship('OneUserRole', back_populates='role',
                                  cascade='all, delete-orphan')

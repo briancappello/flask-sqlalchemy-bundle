@@ -150,6 +150,11 @@ class RelationshipsMetaOption(MetaOption):
         relationships.update(discovered_relationships)
 
 
+class _TestingMetaOption(MetaOption):
+    def __init__(self):
+        super().__init__('_testing_', default=None, inherit=True)
+
+
 class _BaseTablenameMetaOption(MetaOption):
     def __init__(self):
         super().__init__('_base_tablename', default=None, inherit=False)

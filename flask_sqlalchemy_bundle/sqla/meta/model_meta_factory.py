@@ -1,4 +1,5 @@
-
+import os
+from flask_unchained.constants import TEST
 from typing import *
 
 from .model_meta_options import (
@@ -14,6 +15,7 @@ from .model_meta_options import (
     PrimaryKeyColumnMetaOption,
     CreatedAtColumnMetaOption,
     UpdatedAtColumnMetaOption,
+    _TestingMetaOption,
 )
 from .types import MutableMetaArgs
 from .utils import deep_getattr
@@ -31,21 +33,24 @@ class ModelMetaFactory:
         Custom ModelMetaOptions classes should override this method to customize
         the options supported on class Meta of end-user models.
         """
+        # we can't use current_app to determine if we're under test, because it
+        # doesn't exist yet
+        testing_options = ([] if os.getenv('FLASK_ENV', False) != TEST
+                           else [_TestingMetaOption()])
+
         # when options require another option, its dependent must be listed.
         # options in this list are not order-dependent, except where noted.
         # all ColumnMetaOptions subclasses require PolymorphicMetaOption
-        return [
+        return testing_options + [
             AbstractMetaOption(),  # required; must be first
             LazyMappedMetaOption(),
             RelationshipsMetaOption(),  # requires lazy_mapped
 
+            PolymorphicMetaOption(),
             PolymorphicOnColumnMetaOption(),
             PolymorphicIdentityMetaOption(),
-
             PolymorphicJoinedPkColumnMetaOption(),  # requires _BaseTablename
             _BaseTablenameMetaOption(),
-
-            PolymorphicMetaOption(),  # must be after PolymorphicOn
 
             # must be after PolymorphicJoinedPkColumnMetaOption
             PrimaryKeyColumnMetaOption(),
@@ -63,7 +68,8 @@ class ModelMetaFactory:
         meta_args.clsdict['_meta'] = self
 
         options = self._get_model_meta_options()
-        if not isinstance(options[0], AbstractMetaOption):
+        if (os.getenv('FLASK_ENV', None) != TEST
+                and not isinstance(options[0], AbstractMetaOption)):
             raise Exception('The first option in _get_model_meta_options '
                             'must be an instance of AbstractMetaOption')
 

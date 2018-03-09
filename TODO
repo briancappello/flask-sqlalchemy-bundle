@@ -3,20 +3,6 @@
 * tests for individual meta options
     > make sure meta options don't interfere with the stock SQLA way of doing things
 
-* test to make sure meta options on base classes get correctly merged when using a custom base model, eg:
-
-    flask_sqlalchemy_bundle.BaseModel:
-        class Meta:
-            some_option = False
-            another = False
-
-    custom_extension.CustomBaseModel(flask_sqlalchemy_bundle.BaseModel):
-        class Meta:
-            another = True
-            a_third = True
-
-    >> make sure the resulting base meta is some_option=False, another=True, a_third=True
-
 * investigate if it's possible to improve the slugify/events experience by using meta options
 
 * improve reversible op migrations (only used by materialized views at the moment)

@@ -31,5 +31,7 @@ class Model(BaseModel):
     _meta_factory_class = CustomModelMetaOptions
 
     class Meta:
+        _testing_ = 'overriding the default'
         abstract = True
         extend_existing = True
+        pk = 'pk'
