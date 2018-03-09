@@ -4,8 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from .. import sqla
 from ..sqla import BaseModel
-from ..sqla.meta.base_model_metaclass import BaseModelMetaclass
-from ..sqla.meta.model_registry import _model_registry
+from ..meta.base_model_metaclass import BaseModelMetaclass
+from ..meta.model_registry import _model_registry
 
 
 class SQLAlchemy(BaseSQLAlchemy):

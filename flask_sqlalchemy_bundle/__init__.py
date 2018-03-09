@@ -13,5 +13,5 @@ class FlaskSQLAlchemyBundle(Bundle):
 
     @classmethod
     def after_init_app(cls, app):
-        from .sqla.meta.model_registry import _model_registry
+        from .meta.model_registry import _model_registry
         _model_registry.finalize_mappings()

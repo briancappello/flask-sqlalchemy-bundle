@@ -1,5 +1,5 @@
 from flask_sqlalchemy import Model as BaseModel
-from flask_sqlalchemy_bundle.sqla.meta import MetaOption, ModelMetaFactory
+from flask_sqlalchemy_bundle.meta import MetaOption, ModelMetaFactory
 
 
 class ExtendExisting(MetaOption):

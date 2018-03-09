@@ -3,9 +3,9 @@ from sqlalchemy import func as sa_func, types as sa_types
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
 
-from ..column import Column
-from ..relationships import foreign_key
-from ..types import BigInteger, DateTime
+from ..sqla.column import Column
+from ..sqla.relationships import foreign_key
+from ..sqla.types import BigInteger, DateTime
 
 from .types import MutableMetaArgs
 

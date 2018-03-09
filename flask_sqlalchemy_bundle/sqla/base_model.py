@@ -2,7 +2,7 @@ from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from flask_unchained import pluralize, title_case
 from sqlalchemy.ext.declarative import declared_attr
 
-from .meta import ModelMetaFactory
+from ..meta import ModelMetaFactory
 
 
 class BaseModel(FlaskSQLAlchemyBaseModel):

@@ -121,7 +121,7 @@ Let's look at how to do both, because they are closely related. In this example 
 ```python
 # app/models/base_model.py
 from flask_sqlalchemy_bundle import BaseModel
-from flask_sqlalchemy_bundle.sqla.meta import MetaOption, ModelMetaFactory
+from flask_sqlalchemy_bundle.meta import MetaOption, ModelMetaFactory
 
 
 class ExtendExistingMetaOption(MetaOption):
