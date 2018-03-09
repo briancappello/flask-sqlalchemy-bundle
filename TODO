@@ -1,9 +1,10 @@
 * better docs for individual meta options (docstrings would be a good start)
 
-* tests for individual meta options
-    > make sure meta options don't interfere with the stock SQLA way of doing things
-
 * investigate if it's possible to improve the slugify/events experience by using meta options
+
+* see if we can't implement materialized views using meta options. would be awesome
+  if their dependent models could be made lazy_mapped
+    > also, maybe it's possible to auto-add the Index on the __table__'s pk?
 
 * improve reversible op migrations (only used by materialized views at the moment)
   - pretty sure it needs some kind of way to lookup which revision contains the
@@ -13,3 +14,7 @@
 
 * document lazy_mapped, bundle inheritance and overriding behavior
     > esp quirks regarding relationships and backref
+
+* investigate validation
+  > moonshot goal is something that works below both Flask-WTF and Marshmallow,
+    allowing for DRY validation whether using forms or an API
