@@ -39,7 +39,7 @@ class MetaOption:
 
     def __repr__(self):
         return f'<{self.__class__.__name__} name={self.name!r}, ' \
-               f'value={self.default!r}, inherit={self.inherit}>'
+               f'default={self.default!r}, inherit={self.inherit}>'
 
 
 class ColumnMetaOption(MetaOption):
