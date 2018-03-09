@@ -100,6 +100,8 @@ class ModelMetaFactory:
 
     @property
     def _is_base_polymorphic_model(self):
+        if not self.polymorphic:
+            return False
         base_meta = deep_getattr({}, self._mcs_args.bases, '_meta')
         return base_meta.abstract
 
