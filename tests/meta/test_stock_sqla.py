@@ -7,14 +7,14 @@ class TestStockSQLA:
             __abstract__ = True
 
         assert AbstractAttr._meta.abstract is True
-        assert '__abstract__' in AbstractAttr._meta._meta_args.clsdict
+        assert '__abstract__' in AbstractAttr._meta._mcs_args.clsdict
 
         class AbstractMeta(db.Model):
             class Meta:
                 abstract = True
 
         assert AbstractMeta._meta.abstract is True
-        assert '__abstract__' in AbstractMeta._meta._meta_args.clsdict
+        assert '__abstract__' in AbstractMeta._meta._mcs_args.clsdict
 
     def test_columns_do_not_override_existing_attributes(self, db):
         class Columns(db.Model):

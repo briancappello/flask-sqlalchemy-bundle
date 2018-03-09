@@ -121,25 +121,25 @@ Let's look at how to do both, because they are closely related. In this example 
 ```python
 # app/models/base_model.py
 from flask_sqlalchemy_bundle import BaseModel
-from flask_sqlalchemy_bundle.meta import MetaOption, ModelMetaFactory
+from flask_sqlalchemy_bundle.meta import McsArgs, MetaOption, ModelMetaFactory
 
 
 class ExtendExistingMetaOption(MetaOption):
     def __init__(self):
         super().__init__(name='extend_existing', default=False, inherit=False)
 
-    def check_value(self, value, model_meta_options):
-        msg = f'{self.name} Meta option on {model_meta_options._model_repr} ' \
+    def check_value(self, value, mcs_args: McsArgs):
+        msg = f'{self.name} Meta option on {mcs_args.model_repr} ' \
               f'must be True or False'
         assert isinstance(value, bool), msg
 
-    def contribute_to_class(self, meta_args, value, model_meta_options):
+    def contribute_to_class(self, mcs_args: McsArgs, value):
         if not value:
             return
 
-        table_args = meta_args.clsdict.get('__table_args__', {})
+        table_args = mcs_args.clsdict.get('__table_args__', {})
         table_args['extend_existing'] = True
-        meta_args.clsdict['__table_args__'] = table_args
+        mcs_args.clsdict['__table_args__'] = table_args
 
 
 class CustomModelMetaFactory(ModelMetaFactory):

@@ -6,7 +6,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm.interfaces import MapperProperty
 from typing import *
 
-from .types import MetaInitArgs, MetaNewArgs, MutableMetaArgs
+from .types import McsArgs, McsInitArgs
 from .utils import deep_getattr
 
 
@@ -19,21 +19,21 @@ class _ModelRegistry:
         # - order of keys signifies model class discovery order at import time
         # - values are a lookup of:
         #   - keys: module name of this particular model class
-        #   - values: MetaNewArgs(model_mcs, name, bases, clsdict)
+        #   - values: McsArgs(model_mcs, name, bases, clsdict)
         # this dict is used for inspecting base classes when __new__ is
         # called on a model class that extends another of the same name
-        self._registry: Dict[str, Dict[str, MetaNewArgs]] = defaultdict(dict)
+        self._registry: Dict[str, Dict[str, McsArgs]] = defaultdict(dict)
 
         # actual model classes awaiting initialization (after type.__new__ but
         # before type.__init__):
         # - keyed by model class name
-        # - values are MetaInitArgs(model_cls, name, bases, clsdict)
+        # - values are McsInitArgs(model_cls, name, bases, clsdict)
         # this lookup contains the knowledge of which version of a model class
         # should maybe get mapped (BaseModelMetaclass populates this dict
         # via the register method - insertion order of the correct version of a
         # model class by name is therefore determined by the import order of
         # bundles' models modules (essentially, by the RegisterModelsHook))
-        self._models: Dict[str, MetaInitArgs] = {}
+        self._models: Dict[str, McsInitArgs] = {}
 
         # like self._models, except its values are the relationships each model
         # class name expects on the other side
@@ -56,20 +56,19 @@ class _ModelRegistry:
         self._relationships = {}
         self._initialized = set()
 
-    def register_new(self, meta_args: MutableMetaArgs):
-        if self._should_convert_bases_to_mixins(meta_args):
-            self._convert_bases_to_mixins(meta_args)
-        self._registry[meta_args.name][meta_args._module] = \
-            MetaNewArgs(*meta_args)
+    def register_new(self, mcs_args: McsArgs):
+        if self._should_convert_bases_to_mixins(mcs_args):
+            self._convert_bases_to_mixins(mcs_args)
+        self._registry[mcs_args.name][mcs_args.module] = mcs_args
 
-    def register(self, meta_args: MetaInitArgs):
-        self._models[meta_args.name] = meta_args
-        if not meta_args.cls._meta.lazy_mapped:
-            self._initialized.add(meta_args.name)
+    def register(self, mcs_init_args: McsInitArgs):
+        self._models[mcs_init_args.name] = mcs_init_args
+        if not mcs_init_args.cls._meta.lazy_mapped:
+            self._initialized.add(mcs_init_args.name)
 
-        relationships = meta_args.cls._meta.relationships
+        relationships = mcs_init_args.cls._meta.relationships
         if relationships:
-            self._relationships[meta_args.name] = relationships
+            self._relationships[mcs_init_args.name] = relationships
 
     def finalize_mappings(self):
         # this outer loop is needed to perform initializations in the order the
@@ -116,30 +115,30 @@ class _ModelRegistry:
                 if hasattr(related_model, related_attr):
                     return True
 
-    def _ensure_correct_base_model(self, meta_args: MutableMetaArgs):
+    def _ensure_correct_base_model(self, mcs_args: McsArgs):
         if not self._base_model_classes:
             return
 
         correct_base = list(self._base_model_classes.values())[-1]
-        for b in meta_args.bases:
+        for b in mcs_args.bases:
             if issubclass(b, correct_base):
                 return
 
-        meta_args.clsdict['_meta'] = \
-            deep_getattr({}, meta_args.bases, '_meta', None)
-        meta_args.bases = tuple([correct_base] + list(meta_args.bases))
+        mcs_args.clsdict['_meta'] = \
+            deep_getattr({}, mcs_args.bases, '_meta', None)
+        mcs_args.bases = tuple([correct_base] + list(mcs_args.bases))
 
-    def _should_convert_bases_to_mixins(self, meta_args: MutableMetaArgs):
-        if meta_args._model_meta.polymorphic:
+    def _should_convert_bases_to_mixins(self, mcs_args: McsArgs):
+        if mcs_args.model_meta.polymorphic:
             return False
 
-        for b in meta_args.bases:
+        for b in mcs_args.bases:
             if b.__name__ in self._registry:
                 return True
 
-        return meta_args.name in self._registry
+        return mcs_args.name in self._registry
 
-    def _convert_bases_to_mixins(self, meta_args: MutableMetaArgs):
+    def _convert_bases_to_mixins(self, mcs_args: McsArgs):
         """
         For each base class in bases that the _ModelRegistry knows about, create
         a replacement class containing the methods and attributes from the base
@@ -153,7 +152,7 @@ class _ModelRegistry:
 
         new_base_names = set()
         new_bases = []
-        for b in reversed(meta_args.bases):
+        for b in reversed(mcs_args.bases):
             if b.__name__ not in self._registry:
                 if b not in new_bases:
                     new_bases.append(b)
@@ -187,7 +186,7 @@ def {attr}(self):
             new_bases.append(type(mixin_name, (object,), clsdict))
             new_base_names.add(mixin_name)
 
-        meta_args.bases = tuple(reversed(new_bases))
+        mcs_args.bases = tuple(reversed(new_bases))
 
 
 _model_registry = _ModelRegistry()
