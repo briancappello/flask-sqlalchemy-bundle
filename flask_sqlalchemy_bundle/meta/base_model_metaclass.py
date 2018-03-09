@@ -23,6 +23,20 @@ class BaseModelMetaclass(DefaultMeta):
         return super().__new__(*mcs_args)
 
     def __init__(cls, name, bases, clsdict):
+        # for some as-yet-not-understood reason, the arguments python passes
+        # to __init__ do not match those we gave to __new__ (namely, the
+        # bases parameter passed to __init__ is what the class was declared
+        # with, instead of the new bases the model_registry determined it
+        # should have. and in fact, __new__ does the right thing - it uses
+        # the correct bases, and the generated class has the correct bases,
+        # yet still, the ones passed to __init__ are wrong. however at this
+        # point (inside __init__) because the class has already been
+        # constructed, changing the bases argument doesn't seem to have any
+        # effect (and that agrees with what conceptually should be the case).
+        # Sooo, we're passing the correct arguments up the chain, to reduce
+        # confusion, just in case anybody needs to inspect them)
+        _, name, bases, clsdict = cls._meta._mcs_args
+
         if cls._meta.abstract or not cls._meta.lazy_mapped:
             super().__init__(name, bases, clsdict)
         if not cls._meta.abstract:
