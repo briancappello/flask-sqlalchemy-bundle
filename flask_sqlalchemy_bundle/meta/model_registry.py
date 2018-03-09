@@ -1,4 +1,6 @@
+import sqlalchemy as sa
 import warnings
+
 from collections import defaultdict
 from flask_sqlalchemy import DefaultMeta
 from sqlalchemy.exc import SAWarning
@@ -172,15 +174,19 @@ class _ModelRegistry:
 
             clsdict = {}
             for attr, value in base_clsdict.items():
-                if not isinstance(value, MapperProperty):
-                    clsdict[attr] = value
-                else:
+                if attr in {'__name__', '__qualname__'}:
+                    continue
+
+                has_fk = isinstance(value, sa.Column) and value.foreign_keys
+                if has_fk or isinstance(value, MapperProperty):
                     # programmatically add a method wrapped with declared_attr
                     # to the new mixin class
                     exec(f"""\
 @declared_attr
 def {attr}(self):
     return value""", {'value': value, 'declared_attr': declared_attr}, clsdict)
+                else:
+                    clsdict[attr] = value
 
             mixin_name = _mixin_name(base_name)
             new_bases.append(type(mixin_name, (object,), clsdict))
