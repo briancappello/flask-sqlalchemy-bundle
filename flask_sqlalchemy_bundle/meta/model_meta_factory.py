@@ -76,7 +76,7 @@ class ModelMetaFactory:
         self._fill_from_meta(meta, base_model_meta)
         for option in options:
             option.contribute_to_class(meta_args,
-                                       getattr(self, option.name, None), self)
+                                       getattr(self, option.name, None))
 
     def _fill_from_meta(self, meta, base_model_meta):
         # Exclude private/protected fields from the meta

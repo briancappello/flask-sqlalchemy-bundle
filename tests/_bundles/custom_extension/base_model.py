@@ -11,7 +11,7 @@ class ExtendExisting(MetaOption):
               f'must be True or False'
         assert isinstance(value, bool), msg
 
-    def contribute_to_class(self, meta_args, value, model_meta_options):
+    def contribute_to_class(self, meta_args, value):
         if not value:
             return
 
