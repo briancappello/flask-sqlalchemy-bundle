@@ -45,9 +45,7 @@ class MetaOption:
 class ColumnMetaOption(MetaOption):
     def get_value(self, meta, base_model_meta, mcs_args: McsArgs):
         value = super().get_value(meta, base_model_meta, mcs_args)
-        if value is True:
-            value = self.default
-        return value
+        return self.default if value is True else value
 
     def check_value(self, value, mcs_args: McsArgs):
         msg = f'{self.name} Meta option on {mcs_args.model_repr} ' \
@@ -55,9 +53,11 @@ class ColumnMetaOption(MetaOption):
         assert value is None or isinstance(value, (bool, str)), msg
 
     def contribute_to_class(self, mcs_args: McsArgs, col_name):
+        is_polymorphic = mcs_args.model_meta.polymorphic
+        is_polymorphic_base = mcs_args.model_meta._is_base_polymorphic_model
+
         if (mcs_args.model_meta.abstract
-                or (mcs_args.model_meta.polymorphic
-                    and not mcs_args.model_meta._is_base_polymorphic_model)):
+                or (is_polymorphic and not is_polymorphic_base)):
             return
 
         if col_name and col_name not in mcs_args.clsdict:
