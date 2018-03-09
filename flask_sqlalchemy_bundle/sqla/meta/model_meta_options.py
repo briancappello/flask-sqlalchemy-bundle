@@ -1,5 +1,6 @@
 from flask_sqlalchemy.model import camel_to_snake_case
 from sqlalchemy import func as sa_func, types as sa_types
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
 
 from ..column import Column
@@ -58,7 +59,7 @@ class ColumnMetaOption(MetaOption):
                             model_meta_options):
         if (model_meta_options.abstract
                 or (model_meta_options.polymorphic
-                    and not model_meta_options._is_base_model)):
+                    and not model_meta_options._is_base_polymorphic_model)):
             return
 
         if col_name and col_name not in meta_args.clsdict:
@@ -155,7 +156,7 @@ class _TestingMetaOption(MetaOption):
         super().__init__('_testing_', default=None, inherit=True)
 
 
-class _BaseTablenameMetaOption(MetaOption):
+class PolymorphicBaseTablenameMetaOption(MetaOption):
     def __init__(self):
         super().__init__('_base_tablename', default=None, inherit=False)
 
@@ -169,17 +170,22 @@ class PolymorphicOnColumnMetaOption(ColumnMetaOption):
     def __init__(self, name='polymorphic_on', default='discriminator'):
         super().__init__(name=name, default=default)
 
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        if meta_args._model_meta.polymorphic not in {'single', 'joined'}:
+            return None
+        return super().get_value(meta, base_model_meta, meta_args)
+
     def contribute_to_class(self, meta_args: MutableMetaArgs, col_name,
                             model_meta_options):
-        if not model_meta_options.polymorphic:
+        if model_meta_options.polymorphic not in {'single', 'joined'}:
             return
         super().contribute_to_class(meta_args, col_name, model_meta_options)
 
         mapper_args = meta_args.clsdict.get('__mapper_args__', {})
-        if (model_meta_options._is_base_model
+        if (model_meta_options._is_base_polymorphic_model
                 and 'polymorphic_on' not in mapper_args):
             mapper_args['polymorphic_on'] = meta_args.clsdict[col_name]
-        meta_args.clsdict['__mapper_args__'] = mapper_args
+            meta_args.clsdict['__mapper_args__'] = mapper_args
 
     def get_column(self, model_meta_options):
         return Column(sa_types.String)
@@ -197,7 +203,7 @@ class PolymorphicJoinedPkColumnMetaOption(ColumnMetaOption):
 
         pk = model_meta_options.pk or 'id'
         if (model_meta_options.polymorphic == 'joined'
-                and not model_meta_options._is_base_model
+                and not model_meta_options._is_base_polymorphic_model
                 and pk not in meta_args.clsdict):
             meta_args.clsdict[pk] = self.get_column(model_meta_options)
 
@@ -206,19 +212,40 @@ class PolymorphicJoinedPkColumnMetaOption(ColumnMetaOption):
                            primary_key=True, fk_col=model_meta_options.pk)
 
 
+class PolymorphicTableArgsMetaOption(MetaOption):
+    def __init__(self):
+        # name, default, and inherited are all ignored for this option
+        super().__init__(name='_', default='_')
+
+    def contribute_to_class(self, meta_args: MutableMetaArgs, value,
+                            model_meta_options):
+        if (model_meta_options.polymorphic == 'single'
+                and model_meta_options._is_base_polymorphic_model):
+            meta_args.clsdict['__table_args__'] = None
+
+
 class PolymorphicIdentityMetaOption(MetaOption):
     def __init__(self, name='polymorphic_identity', default=None):
         super().__init__(name=name, default=default, inherit=False)
 
+    def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        if meta_args._model_meta.polymorphic in {False, '_fully_manual_'}:
+            return None
+
+        identifier = super().get_value(meta, base_model_meta, meta_args)
+        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
+        return mapper_args.get('polymorphic_identity',
+                               identifier or meta_args.name)
+
     def contribute_to_class(self, meta_args: MutableMetaArgs, identifier,
                             model_meta_options):
-        if not model_meta_options.polymorphic:
+        if model_meta_options.polymorphic in {False, '_fully_manual_'}:
             return
 
         mapper_args = meta_args.clsdict.get('__mapper_args__', {})
         if 'polymorphic_identity' not in mapper_args:
-            mapper_args['polymorphic_identity'] = identifier or meta_args.name
-        meta_args.clsdict['__mapper_args__'] = mapper_args
+            mapper_args['polymorphic_identity'] = identifier
+            meta_args.clsdict['__mapper_args__'] = mapper_args
 
 
 class PolymorphicMetaOption(MetaOption):
@@ -226,12 +253,19 @@ class PolymorphicMetaOption(MetaOption):
         super().__init__('polymorphic', default=False, inherit=True)
 
     def get_value(self, meta, base_model_meta, meta_args: MutableMetaArgs):
+        mapper_args = meta_args.clsdict.get('__mapper_args__', {})
+        if isinstance(mapper_args, declared_attr):
+            return '_fully_manual_'
+        elif 'polymorphic_on' in mapper_args:
+            return '_manual_'
+
         value = super().get_value(meta, base_model_meta, meta_args)
-        if value and not isinstance(value, str):
-            return 'joined'
-        return value
+        return 'joined' if value is True else value
 
     def check_value(self, value, model_meta_options):
+        if value in {'_manual_', '_fully_manual_'}:
+            return
+
         valid = ['joined', 'single', True, False]
         msg = '{name} Meta option on {model} must be one of {choices}'.format(
             name=self.name,

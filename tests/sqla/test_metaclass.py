@@ -44,7 +44,7 @@ class TestModelMetaOptions:
 
         assert meta._base_tablename is None
         assert meta.polymorphic is False
-        assert meta.polymorphic_on == 'discriminator'
+        assert meta.polymorphic_on is None
         assert meta.polymorphic_identity is None
 
         assert meta.pk == 'id'
@@ -69,7 +69,7 @@ class TestModelMetaOptions:
 
         assert meta._base_tablename is None
         assert meta.polymorphic is False
-        assert meta.polymorphic_on == 'discriminator'
+        assert meta.polymorphic_on is None
         assert meta.polymorphic_identity is None
 
         assert meta.pk == 'pk'
@@ -88,7 +88,7 @@ class TestModelMetaOptions:
 
         assert meta._base_tablename == 'over'
         assert meta.polymorphic is False
-        assert meta.polymorphic_on == 'discriminator'
+        assert meta.polymorphic_on is None
         assert meta.polymorphic_identity is None
 
         assert meta.pk == 'pk'

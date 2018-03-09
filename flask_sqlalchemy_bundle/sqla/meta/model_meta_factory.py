@@ -3,19 +3,19 @@ from flask_unchained.constants import TEST
 from typing import *
 
 from .model_meta_options import (
-    MetaOption,
+    _TestingMetaOption,
     AbstractMetaOption,
     LazyMappedMetaOption,
     RelationshipsMetaOption,
-    _BaseTablenameMetaOption,
+    PolymorphicMetaOption,
     PolymorphicOnColumnMetaOption,
     PolymorphicIdentityMetaOption,
+    PolymorphicBaseTablenameMetaOption,
     PolymorphicJoinedPkColumnMetaOption,
-    PolymorphicMetaOption,
     PrimaryKeyColumnMetaOption,
     CreatedAtColumnMetaOption,
     UpdatedAtColumnMetaOption,
-    _TestingMetaOption,
+    MetaOption,
 )
 from .types import MutableMetaArgs
 from .utils import deep_getattr
@@ -46,11 +46,11 @@ class ModelMetaFactory:
             LazyMappedMetaOption(),
             RelationshipsMetaOption(),  # requires lazy_mapped
 
-            PolymorphicMetaOption(),
+            PolymorphicMetaOption(),  # must be first of all polymorphic options
             PolymorphicOnColumnMetaOption(),
             PolymorphicIdentityMetaOption(),
+            PolymorphicBaseTablenameMetaOption(),
             PolymorphicJoinedPkColumnMetaOption(),  # requires _BaseTablename
-            _BaseTablenameMetaOption(),
 
             # must be after PolymorphicJoinedPkColumnMetaOption
             PrimaryKeyColumnMetaOption(),
@@ -99,7 +99,7 @@ class ModelMetaFactory:
                 f"attribute(s) {','.join(sorted(meta_attrs.keys()))}")
 
     @property
-    def _is_base_model(self):
+    def _is_base_polymorphic_model(self):
         base_meta = deep_getattr({}, self._meta_args.bases, '_meta')
         return base_meta.abstract
 
