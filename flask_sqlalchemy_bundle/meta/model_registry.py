@@ -2,7 +2,7 @@ import sqlalchemy as sa
 import warnings
 
 from collections import defaultdict
-from flask_sqlalchemy import DefaultMeta
+from flask_sqlalchemy import DefaultMeta, Model
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm.interfaces import MapperProperty
@@ -14,7 +14,11 @@ from .utils import deep_getattr
 
 class _ModelRegistry:
     def __init__(self):
-        self._base_model_classes = {}
+        # keyed by: full.base.model.module.name.BaseModelClassName
+        # values are the base classes themselves
+        # ordered by registration/discovery order, so the last class to be
+        # inserted into this lookup is the correct base class to use
+        self._base_model_classes: Dict[str, Type[Model]] = {}
 
         # all discovered models "classes", before type.__new__ has been called:
         # - keyed by model class name
