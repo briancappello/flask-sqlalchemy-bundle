@@ -1,7 +1,6 @@
+from flask_unchained.string_utils import slugify as _slugify
 from functools import partial
 from sqlalchemy import event
-
-from .utils import slugify as _slugify
 
 # EVENTS DOCS
 # http://docs.sqlalchemy.org/en/rel_1_1/core/event.html

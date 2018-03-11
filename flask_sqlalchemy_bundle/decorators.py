@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 from flask import abort, request
 from flask_sqlalchemy.model import Model
-from flask_unchained import snake_case
+from flask_unchained.string_utils import snake_case
 
 
 def param_converter(*decorator_args, **decorator_kwargs):
