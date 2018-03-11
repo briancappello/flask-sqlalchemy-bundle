@@ -1,9 +1,9 @@
-from flask_sqlalchemy import (BaseQuery, DefaultMeta,
-                              SQLAlchemy as BaseSQLAlchemy)
+from flask_sqlalchemy import DefaultMeta, SQLAlchemy as BaseSQLAlchemy
 from sqlalchemy.ext.declarative import declarative_base
 
 from .. import sqla
-from ..sqla import BaseModel
+from ..base_model import BaseModel
+from ..base_query import BaseQuery
 from ..meta.base_model_metaclass import BaseModelMetaclass
 from ..meta.model_registry import _model_registry
 

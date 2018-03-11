@@ -119,7 +119,7 @@ Let's look at how to do both, because they are closely related. In this example 
 ### Start by extending `flask_sqlalchemy_bundle.BaseModel`:
 
 ```python
-# app/models/base_model.py
+# app/extensions/sqlalchemy/base_model.py
 from flask_sqlalchemy_bundle import BaseModel
 from flask_sqlalchemy_bundle.meta import McsArgs, MetaOption, ModelMetaFactory
 
@@ -184,7 +184,7 @@ class CustomBaseModel(BaseModel):
 from flask_sqlalchemy_bundle import SQLAlchemy
 from sqlalchemy import MetaData
 
-from app.models.base_model import CustomBaseModel
+from .sqlalchemy.base_model import CustomBaseModel
 
 db = SQLAlchemy(model_class=CustomBaseModel, metadata=MetaData(naming_convention={
     'ix': 'ix_%(column_0_label)s',

@@ -1,8 +1,13 @@
 from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
-from flask_unchained import pluralize, title_case
+from flask_unchained.string_utils import pluralize, title_case
 from sqlalchemy.ext.declarative import declared_attr
 
-from ..meta import ModelMetaFactory
+from .meta import ModelMetaFactory
+
+
+class QueryAliasDescriptor:
+    def __get__(self, instance, cls):
+        return cls.query
 
 
 class BaseModel(FlaskSQLAlchemyBaseModel):
@@ -23,6 +28,8 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
                     'os.getenv("FLASK_ENV") == "test"'
 
     _meta_factory_class = ModelMetaFactory
+
+    q = QueryAliasDescriptor()
 
     __repr_props__ = ()
     """Set to customize automatic string representation.
@@ -63,43 +70,3 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
         for attr, value in kwargs.items():
             setattr(self, attr, value)
         return self
-
-
-# this base class is unused by default, but end users choose to use it
-class QueryBaseModel(BaseModel):
-    @classmethod
-    def all(cls):
-        """Get all models."""
-        return cls.query.all()
-
-    @classmethod
-    def get(cls, id):
-        """Get one model by ID.
-
-        :param id: The model ID to get.
-        """
-        return cls.query.get(int(id))
-
-    @classmethod
-    def get_by(cls, **kwargs):
-        """Get one model by keyword arguments.
-
-        :param kwargs: The model attribute values to filter by.
-        """
-        return cls.query.filter_by(**kwargs).first()
-
-    @classmethod
-    def join(cls, *props, **kwargs):
-        return cls.query.join(*props, **kwargs)
-
-    @classmethod
-    def filter(cls, *args, **kwargs):
-        return cls.query.filter(*args, **kwargs)
-
-    @classmethod
-    def filter_by(cls, **kwargs):
-        """Find models by keyword arguments.
-
-        :param kwargs: The model attribute values to filter by.
-        """
-        return cls.query.filter_by(**kwargs)

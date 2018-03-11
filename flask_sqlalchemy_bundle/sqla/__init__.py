@@ -3,7 +3,6 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 
-from .base_model import BaseModel, QueryBaseModel
 from .column import Column
 from .events import attach_events, on, slugify
 from .materialized_view import (create_materialized_view,

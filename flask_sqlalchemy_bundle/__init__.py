@@ -1,10 +1,11 @@
 from flask_unchained import Bundle
 
 from .alembic import MaterializedViewMigration
+from .base_model import BaseModel
+from .base_query import BaseQuery
 from .decorators import param_converter
 from .extensions import SQLAlchemy, db
 from .services import ModelManager, SessionManager
-from .sqla import BaseModel, QueryBaseModel
 
 
 class FlaskSQLAlchemyBundle(Bundle):
