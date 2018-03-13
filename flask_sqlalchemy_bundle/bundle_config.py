@@ -8,7 +8,9 @@ def render_migration_item(type_, obj, autogen_context):
 
 class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_DATABASE_URI = 'sqlite://'  # :memory:
+
+    db_file = '../db/dev.sqlite'  # relative path to PROJECT_ROOT/db/dev.sqlite
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{db_file}'
 
     ALEMBIC = {
         'script_location': 'db/migrations',

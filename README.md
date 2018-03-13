@@ -27,11 +27,12 @@ class BaseConfig(AppConfig):
 
 ### 3. Configure:
 
-Flask SQLAlchemy Bundle is configured to work out-of-the-box using an in-memory SQLite database. This is fine for getting started quickly, but it's probably not what you want for more serious work. This bundle supports all of the standard [Flask-SQLAlchemy settings](http://flask-sqlalchemy.pocoo.org/latest/config/):
+Flask SQLAlchemy Bundle is configured to work out-of-the-box using an SQLite database. This is fine for getting started quickly, but it's probably not what you want for more serious work. This bundle supports all of the standard [Flask-SQLAlchemy settings](http://flask-sqlalchemy.pocoo.org/latest/config/):
 
 ```python
 # app/config.py
 import os
+from flask_unchained import AppConfig
 
 class BaseConfig(AppConfig):
     # ...
