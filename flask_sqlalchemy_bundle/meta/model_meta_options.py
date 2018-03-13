@@ -109,7 +109,7 @@ class UpdatedAtColumnMetaOption(ColumnMetaOption):
 
 
 class LazyMappedMetaOption(MetaOption):
-    def __init__(self, name='lazy_mapped', default=False, inherit=True):
+    def __init__(self, name='lazy_mapped', default=True, inherit=True):
         super().__init__(name=name, default=default, inherit=inherit)
 
 
