@@ -6,8 +6,23 @@ import sys
 from flask_sqlalchemy_bundle.meta.model_registry import _model_registry
 from flask_unchained import AppFactory, TEST, unchained
 from sqlalchemy import MetaData
+from sqlalchemy.orm import clear_mappers
 
-prior_env = os.getenv('FLASK_ENV', None)
+PRIOR_FLASK_ENV = os.getenv('FLASK_ENV', None)
+
+POSTGRES = '{dialect}://{user}:{password}@{host}:{port}/{db_name}'.format(
+    dialect='postgresql+psycopg2',
+    user='flask_test',
+    password='flask_test',
+    host='127.0.0.1',
+    port=5432,
+    db_name='flask_test')
+
+
+@pytest.fixture()
+def bundles(request):
+    return getattr(request.keywords.get('bundles'), 'args', [None])[0]
+
 
 # reset the Flask-SQLAlchemy extension and the _model_registry to clean slate,
 # support loading the extension from different test bundles.
@@ -25,6 +40,8 @@ def db_ext(bundles):
         bundle_under_test = sqla_bundle
 
     _model_registry._reset()
+    unchained._reset()
+    clear_mappers()
 
     # NOTE: this logic is only correct for one level deep of bundle extension
     # (the proper behavior from unchained hooks is to import the full
@@ -54,6 +71,7 @@ def db_ext(bundles):
     ))
 
     db = db_extensions_module.SQLAlchemy(**kwargs)
+    unchained.extensions.db = db
 
     for module in [db_module, db_extensions_module]:
         setattr(module, 'db', db)
@@ -65,26 +83,21 @@ def db_ext(bundles):
     yield db
 
 
-@pytest.fixture()
-def bundles(request):
-    return getattr(request.keywords.get('bundles'), 'args', [None])[0]
-
-
 @pytest.fixture(autouse=True)
 def app(bundles, db_ext):
     if (bundles and 'tests._bundles.custom_extension' not in bundles
             and 'flask_sqlalchemy_bundle' not in bundles):
         bundles.insert(0, 'flask_sqlalchemy_bundle')
-    unchained._initialized = False  # reset the unchained extension
 
+    unchained._reset()
     app = AppFactory.create_app('tests._app', TEST, bundles=bundles)
     ctx = app.app_context()
     ctx.push()
     yield app
     ctx.pop()
 
-    if prior_env:
-        os.environ['FLASK_ENV'] = prior_env
+    if PRIOR_FLASK_ENV:
+        os.environ['FLASK_ENV'] = PRIOR_FLASK_ENV
     else:
         del os.environ['FLASK_ENV']
 

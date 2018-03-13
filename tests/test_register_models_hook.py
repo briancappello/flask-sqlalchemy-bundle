@@ -5,6 +5,7 @@ from flask_unchained import unchained
 
 from flask_sqlalchemy import Model
 from flask_sqlalchemy_bundle.hooks import RegisterModelsHook, Store
+from tests.conftest import POSTGRES
 
 from ._bundles.app import MyAppBundle
 from ._bundles.backref import BackrefBundle
@@ -94,14 +95,7 @@ class TestRegisterModelsHookTypeCheck:
         assert hook.type_check(db.Model) is False
         assert hook.type_check(M)
 
-    @pytest.mark.options(SQLALCHEMY_DATABASE_URI=
-        '{dialect}://{user}:{password}@{host}:{port}/{db_name}'.format(
-            dialect='postgresql+psycopg2',
-            user='flask_test',
-            password='flask_test',
-            host='127.0.0.1',
-            port=5432,
-            db_name='flask_test'))
+    @pytest.mark.options(SQLALCHEMY_DATABASE_URI=POSTGRES)
     def test_type_check_materialized_view(self, db, hook: RegisterModelsHook):
         class MVT(db.Model):
             name = db.Column(db.Integer, primary_key=True)
