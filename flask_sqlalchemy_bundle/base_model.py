@@ -2,6 +2,7 @@ from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from flask_unchained.string_utils import pluralize, title_case
 from sqlalchemy.ext.declarative import declared_attr
 
+from .base_query import BaseQuery
 from .meta import ModelMetaFactory
 
 
@@ -29,7 +30,8 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
 
     _meta_factory_class = ModelMetaFactory
 
-    q = QueryAliasDescriptor()
+    query: BaseQuery
+    q: BaseQuery = QueryAliasDescriptor()
 
     __repr_props__ = ()
     """Set to customize automatic string representation.

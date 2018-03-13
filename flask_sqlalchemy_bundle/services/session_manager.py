@@ -1,27 +1,31 @@
-from flask_unchained import BaseService
+from flask_unchained import BaseService, injectable
 from typing import *
 
-from ..extensions import db
+from ..base_model import BaseModel as Model
+from ..extensions import SQLAlchemy
 
 
 class SessionManager(BaseService):
-    def add(self, instance: db.Model, commit: bool = False):
-        db.session.add(instance)
+    def __init__(self, db: SQLAlchemy = injectable):
+        self.db = db
+
+    def add(self, instance: Model, commit: bool = False):
+        self.db.session.add(instance)
         if commit:
             self.commit()
 
-    def add_all(self, instances: List[db.Model], commit: bool = False):
-        db.session.add_all(instances)
+    def add_all(self, instances: List[Model], commit: bool = False):
+        self.db.session.add_all(instances)
         if commit:
             self.commit()
 
-    def delete(self, instance: db.Model, commit: bool = False):
-        db.session.delete(instance)
+    def delete(self, instance: Model, commit: bool = False):
+        self.db.session.delete(instance)
         if commit:
             self.commit()
 
     def commit(self):
-        db.session.commit()
+        self.db.session.commit()
 
     def __getattr__(self, method_name):
-        return getattr(db.session, method_name)
+        return getattr(self.db.session, method_name)
