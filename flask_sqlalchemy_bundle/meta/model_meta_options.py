@@ -161,6 +161,13 @@ class PolymorphicBaseTablenameMetaOption(MetaOption):
     def get_value(self, meta, base_model_meta, mcs_args: McsArgs):
         if base_model_meta and not base_model_meta.abstract:
             bm = base_model_meta._mcs_args
+            clsdicts = [bm.clsdict] + [b._meta._mcs_args.clsdict
+                                       for b in bm.bases
+                                       if hasattr(b, '_meta')]
+            declared_attrs = [isinstance(d.get('__tablename__'), declared_attr)
+                              for d in clsdicts]
+            if any(declared_attrs):
+                return None
             return bm.clsdict.get('__tablename__', camel_to_snake_case(bm.name))
 
 
@@ -176,6 +183,8 @@ class PolymorphicOnColumnMetaOption(ColumnMetaOption):
     def contribute_to_class(self, mcs_args: McsArgs, col_name):
         if mcs_args.model_meta.polymorphic not in {'single', 'joined'}:
             return
+
+        # maybe add the polymorphic_on discriminator column
         super().contribute_to_class(mcs_args, col_name)
 
         mapper_args = mcs_args.clsdict.get('__mapper_args__', {})
@@ -194,16 +203,17 @@ class PolymorphicJoinedPkColumnMetaOption(ColumnMetaOption):
         super().__init__(name='_', default='_')
 
     def contribute_to_class(self, mcs_args: McsArgs, value):
-        if mcs_args.model_meta.abstract:
+        model_meta = mcs_args.model_meta
+        if model_meta.abstract or not model_meta._base_tablename:
             return
 
-        pk = mcs_args.model_meta.pk or 'id'
-        if (mcs_args.model_meta.polymorphic == 'joined'
-                and not mcs_args.model_meta._is_base_polymorphic_model
+        pk = model_meta.pk or 'id'  # FIXME is this default a good idea?
+        if (model_meta.polymorphic == 'joined'
+                and not model_meta._is_base_polymorphic_model
                 and pk not in mcs_args.clsdict):
             mcs_args.clsdict[pk] = self.get_column(mcs_args)
 
-    def get_column(self, mcs_args):
+    def get_column(self, mcs_args: McsArgs):
         return foreign_key(mcs_args.model_meta._base_tablename,
                            primary_key=True, fk_col=mcs_args.model_meta.pk)
 
@@ -286,5 +296,5 @@ class TableMetaOption(MetaOption):
             return camel_to_snake_case(mcs_args.name)
 
     def contribute_to_class(self, mcs_args: McsArgs, value):
-        if value and value != _default:
+        if value:
             mcs_args.clsdict['__tablename__'] = value
