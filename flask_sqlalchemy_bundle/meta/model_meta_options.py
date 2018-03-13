@@ -1,4 +1,4 @@
-from flask_sqlalchemy.model import camel_to_snake_case
+from flask_unchained.string_utils import snake_case
 from sqlalchemy import func as sa_func, types as sa_types
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import RelationshipProperty
@@ -168,7 +168,7 @@ class PolymorphicBaseTablenameMetaOption(MetaOption):
                               for d in clsdicts]
             if any(declared_attrs):
                 return None
-            return bm.clsdict.get('__tablename__', camel_to_snake_case(bm.name))
+            return bm.clsdict.get('__tablename__', snake_case(bm.name))
 
 
 class PolymorphicOnColumnMetaOption(ColumnMetaOption):
@@ -293,7 +293,7 @@ class TableMetaOption(MetaOption):
         if value:
             return value
         elif 'selectable' in mcs_args.clsdict:  # db.MaterializedView
-            return camel_to_snake_case(mcs_args.name)
+            return snake_case(mcs_args.name)
 
     def contribute_to_class(self, mcs_args: McsArgs, value):
         if value:

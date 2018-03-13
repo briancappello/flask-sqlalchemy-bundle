@@ -228,10 +228,10 @@ class TestModelMetaOptions:
 
         _model_registry.finalize_mappings()
 
-        assert AutoMV._meta.table == 'autoMV'
-        assert AutoMV.__table__.fullname == 'autoMV'
-        assert AutoMV._meta._mcs_args.clsdict['__tablename__'] == 'autoMV'
-        assert AutoMV.__tablename__ == 'autoMV'
+        assert AutoMV._meta.table == 'auto_mv'
+        assert AutoMV.__table__.fullname == 'auto_mv'
+        assert AutoMV._meta._mcs_args.clsdict['__tablename__'] == 'auto_mv'
+        assert AutoMV.__tablename__ == 'auto_mv'
 
         class ManualMV(db.MaterializedView):
             class Meta:

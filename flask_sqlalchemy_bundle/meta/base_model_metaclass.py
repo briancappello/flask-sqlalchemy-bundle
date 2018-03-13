@@ -1,4 +1,5 @@
-from flask_sqlalchemy.model import DefaultMeta
+from flask_sqlalchemy.model import DefaultMeta, should_set_tablename
+from flask_unchained.string_utils import snake_case
 
 from .model_meta_factory import ModelMetaFactory
 from .model_registry import _model_registry
@@ -39,7 +40,11 @@ class BaseModelMetaclass(DefaultMeta):
 
         if cls._meta.abstract:
             super().__init__(name, bases, clsdict)
-        elif not cls._meta.lazy_mapped:
+
+        if should_set_tablename(cls):
+            cls.__tablename__ = snake_case(cls.__name__)
+
+        if not cls._meta.lazy_mapped:
             cls._pre_mcs_init()
             super().__init__(name, bases, clsdict)
             cls._post_mcs_init()

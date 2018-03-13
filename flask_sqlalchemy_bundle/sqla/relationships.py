@@ -1,6 +1,7 @@
 import inspect
 
-from flask_sqlalchemy.model import Model, camel_to_snake_case
+from flask_sqlalchemy.model import Model
+from flask_unchained.string_utils import snake_case
 from sqlalchemy.schema import ForeignKey
 from typing import *
 
@@ -64,7 +65,7 @@ def foreign_key(model_or_table_name_or_column_name: Union[str, Type[Model]],
     if inspect.isclass(model_or_table_name):
         table_name = model_or_table_name.__tablename__
     elif table_name != table_name.lower():
-        table_name = camel_to_snake_case(model_or_table_name)
+        table_name = snake_case(model_or_table_name)
 
     args = [column_name] if column_name else []
     args += [BigInteger, ForeignKey(f'{table_name}.{fk_col}')]
