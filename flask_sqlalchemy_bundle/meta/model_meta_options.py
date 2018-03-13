@@ -9,6 +9,8 @@ from ..sqla.types import BigInteger, DateTime
 
 from .types import McsArgs
 
+_default = type('_default', (), {'__bool__': lambda x: False})()
+
 
 class MetaOption:
     def __init__(self, name, default=None, inherit=False):
@@ -264,3 +266,25 @@ class PolymorphicMetaOption(MetaOption):
             model=mcs_args.model_repr,
             choices=', '.join(f'{c!r}' for c in valid))
         assert value in valid, msg
+
+
+class TableMetaOption(MetaOption):
+    def __init__(self):
+        super().__init__(name='table', default=_default, inherit=False)
+
+    def get_value(self, meta, base_model_meta, mcs_args: McsArgs):
+        manual = mcs_args.clsdict.get('__tablename__')
+        if isinstance(manual, declared_attr):
+            return None
+        elif manual:
+            return manual
+
+        value = super().get_value(meta, base_model_meta, mcs_args)
+        if value:
+            return value
+        elif 'selectable' in mcs_args.clsdict:  # db.MaterializedView
+            return camel_to_snake_case(mcs_args.name)
+
+    def contribute_to_class(self, mcs_args: McsArgs, value):
+        if value and value != _default:
+            mcs_args.clsdict['__tablename__'] = value

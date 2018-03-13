@@ -101,7 +101,9 @@ class TestRegisterModelsHookTypeCheck:
             name = db.Column(db.Integer, primary_key=True)
 
         class MV(db.MaterializedView):
-            __table__ = db.create_materialized_view('mv', db.select([MVT.id]))
+            @classmethod
+            def selectable(cls):
+                return db.select([MVT.id])
 
         assert hook.type_check(db.MaterializedView) is False
         assert hook.type_check(MV)

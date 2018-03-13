@@ -82,7 +82,9 @@ class _ModelRegistry:
         for name in self._registry:
             if self.should_initialize(name):
                 model_cls, name, bases, clsdict = self._models[name]
+                model_cls._pre_mcs_init()
                 super(DefaultMeta, model_cls).__init__(name, bases, clsdict)
+                model_cls._post_mcs_init()
                 self._initialized.add(name)
         return {name: self._models[name].cls for name in self._initialized}
 

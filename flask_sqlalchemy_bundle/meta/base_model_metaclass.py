@@ -37,7 +37,30 @@ class BaseModelMetaclass(DefaultMeta):
         # confusion, just in case anybody needs to inspect them)
         _, name, bases, clsdict = cls._meta._mcs_args
 
-        if cls._meta.abstract or not cls._meta.lazy_mapped:
+        if cls._meta.abstract:
             super().__init__(name, bases, clsdict)
+        elif not cls._meta.lazy_mapped:
+            cls._pre_mcs_init()
+            super().__init__(name, bases, clsdict)
+            cls._post_mcs_init()
+
         if not cls._meta.abstract:
             _model_registry.register(McsInitArgs(cls, name, bases, clsdict))
+
+    def _pre_mcs_init(cls):
+        """
+        Callback for BaseModelMetaclass subclasses to run code just before a
+        concrete Model class gets registered with SQLAlchemy.
+
+        This is intended to be used for advanced meta options implementations.
+        """
+        # technically you could also put a @classmethod with the same name on
+        # the Model class, if you prefer that approach
+
+    def _post_mcs_init(cls):
+        """
+        Callback for BaseModelMetaclass subclasses to run code just after a
+        concrete Model class gets registered with SQLAlchemy.
+
+        This is intended to be used for advanced meta options implementations.
+        """

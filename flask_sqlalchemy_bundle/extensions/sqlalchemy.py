@@ -1,5 +1,8 @@
 from flask_sqlalchemy import DefaultMeta, SQLAlchemy as BaseSQLAlchemy
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.naming import (ConventionDict, _get_convention,
+                                   conv as converted_name)
 
 from .. import sqla
 from ..base_model import BaseModel
@@ -16,6 +19,7 @@ class SQLAlchemy(BaseSQLAlchemy):
                          metadata=metadata,
                          query_class=query_class,
                          model_class=model_class)
+
         _model_registry.register_base_model_class(self.Model)
 
         self.Column = sqla.Column
@@ -32,11 +36,30 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.on = sqla.on
         self.slugify = sqla.slugify
 
-        self.create_materialized_view = sqla.create_materialized_view
         self.refresh_materialized_view = sqla.refresh_materialized_view
         self.refresh_all_materialized_views = sqla.refresh_all_materialized_views
 
-        class MaterializedView(self.Model):
+        class MaterializedViewMetaclass(BaseModelMetaclass):
+            def _pre_mcs_init(cls):
+                cls.__table__ = sqla.create_materialized_view(cls._meta.table,
+                                                              cls.selectable())
+
+            def _post_mcs_init(cls):
+                # create a unique index for the primary key(s) of __table__
+                cls._meta._refresh_concurrently = False
+                for pk in cls.__table__.primary_key.columns:
+                    pk_idx = self.Index(pk.name,
+                                        getattr(cls, pk.name),
+                                        unique=True)
+                    self._set_constraint_name(pk_idx, cls.__table__)
+                    cls._meta._refresh_concurrently = True
+
+                # apply naming conventions to user-supplied indexes (if any)
+                constraints = cls.constraints()
+                for idx in constraints:
+                    self._set_constraint_name(idx, cls.__table__)
+
+        class MaterializedView(self.Model, metaclass=MaterializedViewMetaclass):
             class Meta:
                 abstract = True
                 pk = None
@@ -48,7 +71,21 @@ class SQLAlchemy(BaseSQLAlchemy):
                 return self.__table__.fullname
 
             @classmethod
-            def refresh(cls, concurrently=True):
+            def selectable(cls):
+                """
+                Return the selectable representing the materialized view. A
+                unique index will automatically be created on its primary key.
+                """
+                raise NotImplementedError
+
+            @classmethod
+            def constraints(cls):
+                return []
+
+            @classmethod
+            def refresh(cls, concurrently=None):
+                concurrently = (concurrently if concurrently is not None
+                                else cls._meta._refresh_concurrently)
                 sqla.refresh_materialized_view(cls.__tablename__, concurrently)
 
         self.MaterializedView = MaterializedView
@@ -58,10 +95,19 @@ class SQLAlchemy(BaseSQLAlchemy):
             self.Column = sqla._column_type_hinter_
             self.backref = sqla._relationship_type_hinter_
             self.relationship = sqla._relationship_type_hinter_
+            self.session = Session
+
+    def _set_constraint_name(self, const, table):
+        fmt = _get_convention(self.metadata.naming_convention, type(const))
+        if not fmt:
+            return
+
+        const.name = converted_name(
+            fmt % ConventionDict(const, table, self.metadata.naming_convention))
 
     def make_declarative_base(self, model, metadata=None) -> BaseModel:
         if not isinstance(model, DefaultMeta):
-            def make_model_metaclass(name, bases, clsdict):
+            def make_model_class(name, bases, clsdict):
                 clsdict['__abstract__'] = True
                 clsdict['__module__'] = model.__module__
                 if hasattr(model, 'Meta'):
@@ -74,6 +120,6 @@ class SQLAlchemy(BaseSQLAlchemy):
                 cls=model,
                 name='Model',
                 metadata=metadata,
-                metaclass=make_model_metaclass,
+                metaclass=make_model_class,
             )
         return super().make_declarative_base(model, metadata)
