@@ -9,9 +9,6 @@ from tests.conftest import POSTGRES
 
 def setup(db):
     class Node(db.Model):
-        class Meta:
-            lazy_mapped = False
-
         slug = db.Column(db.String, index=True, unique=True)
 
         parent_id = db.foreign_key('Node', nullable=True)
@@ -20,7 +17,7 @@ def setup(db):
         children = db.relationship('Node', back_populates='parent')
 
         mv = db.relationship('NodeMV', uselist=False, foreign_keys='NodeMV.id',
-                             primaryjoin='Node.id == NodeMV.id')
+                             primaryjoin='Node.id == NodeMV.id', viewonly=True)
         depth = db.association_proxy('mv', 'depth')
         path = db.association_proxy('mv', 'path')
 
@@ -28,8 +25,7 @@ def setup(db):
 
     class NodeMV(db.MaterializedView):
         class Meta:
-            lazy_mapped = False
-            table = 'node_mv'
+            mv_for = 'Node'
 
         @classmethod
         def selectable(cls):
@@ -51,7 +47,6 @@ def setup(db):
             return db.select([_union])
 
     _model_registry.finalize_mappings()
-    db.drop_all()
     db.create_all()
 
     class NodeManager(ModelManager):
@@ -66,14 +61,15 @@ class TestIt:
     def test_it(self, db):
         Node, NodeMV, node_manager, session_manager = setup(db)
 
+        assert NodeMV._meta.table == 'node_mv'
+        assert NodeMV.__tablename__ == 'node_mv'
+
         index = node_manager.create(slug='index')
         contact = node_manager.create(slug='contact', parent=index)
         about = node_manager.create(slug='about', parent=index)
         about_history = node_manager.create(slug='history', parent=about)
         about_team = node_manager.create(slug='team', parent=about)
-
         session_manager.commit()
-        NodeMV.refresh()
 
         assert index.slug == 'index'
         assert index.path == '/'

@@ -298,3 +298,11 @@ class TableMetaOption(MetaOption):
     def contribute_to_class(self, mcs_args: McsArgs, value):
         if value:
             mcs_args.clsdict['__tablename__'] = value
+
+
+class MaterializedViewForMetaOption(MetaOption):
+    def __init__(self):
+        super().__init__(name='mv_for', default=None, inherit=True)
+
+    def get_value(self, meta, base_model_meta, mcs_args: McsArgs):
+        return super().get_value(meta, base_model_meta, mcs_args) or []

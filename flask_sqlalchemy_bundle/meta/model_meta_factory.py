@@ -17,6 +17,7 @@ from .model_meta_options import (
     UpdatedAtColumnMetaOption,
     MetaOption,
     TableMetaOption,
+    MaterializedViewForMetaOption,
 )
 from .types import McsArgs
 from .utils import deep_getattr
@@ -47,6 +48,7 @@ class ModelMetaFactory:
             LazyMappedMetaOption(),
             RelationshipsMetaOption(),  # requires lazy_mapped
             TableMetaOption(),
+            MaterializedViewForMetaOption(),
 
             PolymorphicMetaOption(),  # must be first of all polymorphic options
             PolymorphicOnColumnMetaOption(),

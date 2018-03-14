@@ -1,4 +1,5 @@
 from flask_sqlalchemy import DefaultMeta, SQLAlchemy as BaseSQLAlchemy
+from sqlalchemy import event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.naming import (ConventionDict, _get_convention,
@@ -58,6 +59,21 @@ class SQLAlchemy(BaseSQLAlchemy):
                 constraints = cls.constraints()
                 for idx in constraints:
                     self._set_constraint_name(idx, cls.__table__)
+
+                # automatically refresh the view when its parent table changes
+                mv_for = cls._meta.mv_for
+                parents = (mv_for if isinstance(mv_for, (list, tuple))
+                           else [mv_for])
+                for Parent in parents:
+                    if isinstance(Parent, str):
+                        Parent = cls._decl_class_registry[Parent]
+
+                    def refresh_mv(mapper, connection, target):
+                        cls.refresh()
+
+                    event.listen(Parent, 'after_insert', refresh_mv)
+                    event.listen(Parent, 'after_update', refresh_mv)
+                    event.listen(Parent, 'after_delete', refresh_mv)
 
         class MaterializedView(self.Model, metaclass=MaterializedViewMetaclass):
             class Meta:
