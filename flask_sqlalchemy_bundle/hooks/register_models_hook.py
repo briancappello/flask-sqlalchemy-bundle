@@ -4,6 +4,7 @@ import sys
 from flask import Flask
 from flask_sqlalchemy import Model
 from flask_unchained import AppFactoryHook
+from flask_unchained.constants import TEST
 from typing import *
 
 from ..meta.model_registry import _model_registry
@@ -32,7 +33,6 @@ class RegisterModelsHook(AppFactoryHook):
 
     def import_bundle_module(self, bundle):
         module_name = self.get_module_name(bundle)
-        testing = getattr(self.unchained.app_config_cls, 'TESTING', False)
-        if testing and module_name in sys.modules:
+        if self.unchained.env == TEST and module_name in sys.modules:
             del sys.modules[module_name]
         return super().import_bundle_module(bundle)
