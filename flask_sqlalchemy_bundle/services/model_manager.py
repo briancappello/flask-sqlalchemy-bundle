@@ -1,5 +1,4 @@
 from flask_unchained import BaseService, injectable, unchained
-from sqlalchemy.orm.exc import NoResultFound
 from typing import *
 
 from ..base_model import BaseModel as Model
@@ -48,10 +47,7 @@ class ModelManager(BaseService):
         return instance, False
 
     def get_by(self, **kwargs) -> Union[None, model]:
-        try:
-            return self.q.filter_by(**kwargs).one()
-        except NoResultFound:
-            return None
+        return self.q.filter_by(**kwargs).one_or_none()
 
     def find_all(self) -> List[model]:
         return self.q.all()
