@@ -21,7 +21,10 @@ POSTGRES = '{dialect}://{user}:{password}@{host}:{port}/{db_name}'.format(
 
 @pytest.fixture()
 def bundles(request):
-    return getattr(request.keywords.get('bundles'), 'args', [None])[0]
+    try:
+        return request.keywords.get('bundles').args[0]
+    except AttributeError:
+        return ['flask_sqlalchemy_bundle']
 
 
 # reset the Flask-SQLAlchemy extension and the _model_registry to clean slate,
@@ -90,7 +93,7 @@ def app(bundles, db_ext):
         bundles.insert(0, 'flask_sqlalchemy_bundle')
 
     unchained._reset()
-    app = AppFactory.create_app('tests._app', TEST, bundles=bundles)
+    app = AppFactory.create_app(TEST, bundles=bundles)
     ctx = app.app_context()
     ctx.push()
     yield app
