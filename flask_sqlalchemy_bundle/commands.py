@@ -1,10 +1,15 @@
 import click
+import os
 
 from alembic import command as alembic
-from flask_migrate.cli import db
+from flask import current_app
 from flask.cli import with_appcontext
+from flask_migrate.cli import db
+from flask_unchained import unchained, injectable
+from py_yaml_fixtures import FixturesLoader
+from py_yaml_fixtures.factories import SQLAlchemyModelFactory
 
-from .extensions import migrate, db as db_ext
+from .extensions import migrate
 
 
 @db.command('drop')
@@ -22,9 +27,10 @@ def drop_command(drop):
     click.echo('Done.')
 
 
-def drop_all():
-    db_ext.drop_all()
-    db_ext.engine.execute('DROP TABLE IF EXISTS alembic_version;')
+@unchained.inject('db')
+def drop_all(db=injectable):
+    db.drop_all()
+    db.engine.execute('DROP TABLE IF EXISTS alembic_version;')
 
 
 @db.command('reset')
@@ -43,3 +49,23 @@ def reset_command(reset):
     alembic.upgrade(migrate.get_config(None), 'head')
 
     click.echo('Done.')
+
+
+@db.command()
+@with_appcontext
+@unchained.inject('db')
+def import_fixtures(db=injectable):
+    fixtures_dir = current_app.config.get('PY_YAML_FIXTURES_DIR')
+    if not fixtures_dir or not os.path.exists(fixtures_dir):
+        msg = (f'Could not find the {fixtures_dir} directory, please make sure '
+               'PY_YAML_FIXTURES_DIR is set correctly and the directory exists')
+        raise NotADirectoryError(msg)
+
+    factory = SQLAlchemyModelFactory(db.session,
+                                     unchained.flask_sqlalchemy_bundle.models)
+    loader = FixturesLoader(factory, fixtures_dir=fixtures_dir)
+
+    click.echo(f'Loading fixtures from {fixtures_dir}')
+    for identifier_key, model in loader.create_all().items():
+        click.echo(f'Created {identifier_key}: {model!r}')
+    click.echo('Finished adding fixtures')

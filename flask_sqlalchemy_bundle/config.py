@@ -12,6 +12,8 @@ class BaseConfig:
     db_file = 'db/dev.sqlite'  # relative path to PROJECT_ROOT/db/dev.sqlite
     SQLALCHEMY_DATABASE_URI = f'sqlite:///{db_file}'
 
+    PY_YAML_FIXTURES_DIR = 'db/fixtures'
+
     ALEMBIC = {
         'script_location': 'db/migrations',
     }

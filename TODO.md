@@ -24,5 +24,3 @@
 * investigate validation
   > moonshot goal is something that works below both Flask-WTF and Marshmallow,
     allowing for DRY validation whether using forms or an API
-
-* integrate py-yaml-fixtures
