@@ -34,11 +34,19 @@ class ModelFactory(factory.Factory):
     @classmethod
     @unchained.inject('session_manager')
     def _create(cls, model_class, session_manager=injectable, *args, **kwargs):
-        # query for existing by attrs on model_class with simple type values
-        filter_kwargs = {k: v for k, v in kwargs.items()
-                         if '__' not in k
-                         and (v is None
-                              or isinstance(v, (bool, int, str, float)))}
+        # try to query for existing by primary key or unique column(s)
+        filter_kwargs = {}
+        for col in model_class.__mapper__.columns:
+            if col.name in kwargs and (col.primary_key or col.unique):
+                filter_kwargs[col.name] = kwargs[col.name]
+
+        # otherwise try by all simple type values
+        if not filter_kwargs:
+            filter_kwargs = {k: v for k, v in kwargs.items()
+                             if '__' not in k
+                             and (v is None
+                                  or isinstance(v, (bool, int, str, float)))}
+
         instance = (model_class.query.filter_by(**filter_kwargs).one_or_none()
                     if filter_kwargs else None)
 
