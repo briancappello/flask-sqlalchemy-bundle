@@ -41,4 +41,9 @@ setup(
     python_requires='>=3.6',
     include_package_data=True,
     zip_safe=False,
+    entry_points={
+        'pytest11': [
+            'flask_sqlalchemy_bundle = flask_sqlalchemy_bundle.pytest',
+        ],
+    },
 )
