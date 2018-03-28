@@ -9,12 +9,12 @@ class SessionManager(BaseService):
     def __init__(self, db: SQLAlchemy = injectable):
         self.db = db
 
-    def add(self, instance: Model, commit: bool = False):
+    def save(self, instance: Model, commit: bool = False):
         self.db.session.add(instance)
         if commit:
             self.commit()
 
-    def add_all(self, instances: List[Model], commit: bool = False):
+    def save_all(self, instances: List[Model], commit: bool = False):
         self.db.session.add_all(instances)
         if commit:
             self.commit()

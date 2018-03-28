@@ -52,5 +52,5 @@ class ModelFactory(factory.Factory):
 
         if not instance:
             instance = model_class(*args, **kwargs)
-            session_manager.add(instance, commit=True)
+            session_manager.save(instance, commit=True)
         return instance

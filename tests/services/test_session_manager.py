@@ -15,11 +15,11 @@ def setup(db: SQLAlchemy):
 
 
 class TestSessionManager:
-    def test_add(self, db: SQLAlchemy):
+    def test_save(self, db: SQLAlchemy):
         Foo, session_manager = setup(db)
 
         foo = Foo(name='foo')
-        session_manager.add(foo)
+        session_manager.save(foo)
 
         # check it's added to the session but not committed
         assert foo in db.session
@@ -27,10 +27,10 @@ class TestSessionManager:
             assert Foo.q.get_by(name='foo') is None
 
         # check the commit kwarg works
-        session_manager.add(foo, commit=True)
+        session_manager.save(foo, commit=True)
         assert Foo.q.get_by(name='foo') == foo
 
-    def test_add_all(self, db: SQLAlchemy):
+    def test_save_all(self, db: SQLAlchemy):
         Foo, session_manager = setup(db)
 
         foo1 = Foo(name='one')
@@ -38,28 +38,28 @@ class TestSessionManager:
         foo3 = Foo(name='three')
         all_ = [foo1, foo2, foo3]
 
-        session_manager.add_all(all_)
+        session_manager.save_all(all_)
         with db.session.no_autoflush:
             for foo in all_:
                 assert foo in db.session
                 assert Foo.q.get_by(name=foo.name) is None
 
-        session_manager.add_all(all_, commit=True)
+        session_manager.save_all(all_, commit=True)
         for foo in all_:
             assert Foo.q.get_by(name=foo.name) == foo
 
     def test_delete(self, db: SQLAlchemy):
         Foo, session_manager = setup(db)
-        
+
         foo1 = Foo(name='one')
         foo2 = Foo(name='two')
         all_ = [foo1, foo2]
-        session_manager.add_all(all_, commit=True)
-        
+        session_manager.save_all(all_, commit=True)
+
         for foo in all_:
             assert foo in db.session
             assert Foo.q.get_by(name=foo.name) == foo
-        
+
         session_manager.delete(foo1, commit=True)
         assert foo1 not in db.session
         assert Foo.q.get_by(name='one') is None

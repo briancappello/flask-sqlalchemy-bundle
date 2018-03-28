@@ -2,7 +2,6 @@ import pytest
 
 from flask_sqlalchemy_bundle import ModelManager
 from flask_sqlalchemy_bundle.meta.model_registry import _model_registry
-from flask_unchained import unchained
 from sqlalchemy.sql.expression import case, label, literal
 from tests.conftest import POSTGRES
 
@@ -52,14 +51,13 @@ def setup(db):
     class NodeManager(ModelManager):
         model = Node
 
-    session_manager = unchained.services.session_manager
-    return Node, NodeMV, NodeManager(session_manager), session_manager
+    return Node, NodeMV, NodeManager()
 
 
 @pytest.mark.options(SQLALCHEMY_DATABASE_URI=POSTGRES)
 class TestIt:
     def test_it(self, db):
-        Node, NodeMV, node_manager, session_manager = setup(db)
+        Node, NodeMV, node_manager = setup(db)
 
         assert NodeMV._meta.table == 'node_mv'
         assert NodeMV.__tablename__ == 'node_mv'
@@ -69,7 +67,7 @@ class TestIt:
         about = node_manager.create(slug='about', parent=index)
         about_history = node_manager.create(slug='history', parent=about)
         about_team = node_manager.create(slug='team', parent=about)
-        session_manager.commit()
+        node_manager.commit()
 
         assert index.slug == 'index'
         assert index.path == '/'
