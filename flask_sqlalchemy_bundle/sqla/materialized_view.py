@@ -1,4 +1,4 @@
-from flask_unchained import unchained
+from flask_unchained import unchained, injectable
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import DDLElement
 
@@ -10,7 +10,7 @@ from sqlalchemy.schema import DDLElement
 # make sure we're getting the correct instance (if the user has overridden ours)
 
 @unchained.inject('db')
-def create_materialized_view(name, selectable, db=None):
+def create_materialized_view(name, selectable, db=injectable):
     # must use a temporary metadata here so that SQLAlchemy doesn't detect the
     # table as "standalone". (it will still use the correct metadata once
     # attached to the __table__ attribute of the declarative base model)
@@ -45,13 +45,13 @@ def create_materialized_view(name, selectable, db=None):
 
 
 @unchained.inject('db')
-def refresh_materialized_view(name, concurrently=True, db=None):
+def refresh_materialized_view(name, concurrently=True, db=injectable):
     concurrently = concurrently and 'CONCURRENTLY ' or ''
     db.session.execute(f'REFRESH MATERIALIZED VIEW {concurrently}{name}')
 
 
 @unchained.inject('db')
-def refresh_all_materialized_views(concurrently=True, db=None):
+def refresh_all_materialized_views(concurrently=True, db=injectable):
     materialized_views = db.inspect(db.engine).get_view_names(include='materialized')
     for materialized_view in materialized_views:
         refresh_materialized_view(materialized_view, concurrently)

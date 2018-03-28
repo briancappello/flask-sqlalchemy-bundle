@@ -9,7 +9,7 @@ from flask_unchained import unchained, injectable
 from py_yaml_fixtures import FixturesLoader
 from py_yaml_fixtures.factories import SQLAlchemyModelFactory
 
-from .extensions import migrate
+from .extensions import SQLAlchemy, migrate
 
 
 @db.command('drop')
@@ -28,7 +28,7 @@ def drop_command(drop):
 
 
 @unchained.inject('db')
-def drop_all(db=injectable):
+def drop_all(db: SQLAlchemy = injectable):
     db.drop_all()
     db.engine.execute('DROP TABLE IF EXISTS alembic_version;')
 
@@ -54,7 +54,7 @@ def reset_command(reset):
 @db.command()
 @with_appcontext
 @unchained.inject('db')
-def import_fixtures(db=injectable):
+def import_fixtures(db: SQLAlchemy = injectable):
     fixtures_dir = current_app.config.get('PY_YAML_FIXTURES_DIR')
     if not fixtures_dir or not os.path.exists(fixtures_dir):
         msg = (f'Could not find the {fixtures_dir} directory, please make sure '

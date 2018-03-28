@@ -1,10 +1,13 @@
+from flask import Flask
 from flask_migrate import Migrate as BaseMigrate
-from flask_unchained import unchained
+from flask_unchained import unchained, injectable
+
+from .sqlalchemy import SQLAlchemy
 
 
 class Migrate(BaseMigrate):
     @unchained.inject('db')
-    def init_app(self, app, db):
+    def init_app(self, app: Flask, db: SQLAlchemy = injectable):
         alembic_config = app.config.get('ALEMBIC', {})
         alembic_config.setdefault('script_location', 'db/migrations')
 
