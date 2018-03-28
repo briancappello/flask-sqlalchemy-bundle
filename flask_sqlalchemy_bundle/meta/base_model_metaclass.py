@@ -1,10 +1,10 @@
 from flask_sqlalchemy.model import DefaultMeta, should_set_tablename
 from flask_unchained.string_utils import snake_case
+from flask_unchained.utils import deep_getattr
 
 from .model_meta_factory import ModelMetaFactory
 from .model_registry import _model_registry
 from .types import McsArgs, McsInitArgs
-from .utils import deep_getattr
 
 
 class BaseModelMetaclass(DefaultMeta):
@@ -31,7 +31,7 @@ class BaseModelMetaclass(DefaultMeta):
         # should have. and in fact, __new__ does the right thing - it uses
         # the correct bases, and the generated class has the correct bases,
         # yet still, the ones passed to __init__ are wrong. however at this
-        # point (inside __init__) because the class has already been
+        # point (inside __init__), because the class has already been
         # constructed, changing the bases argument doesn't seem to have any
         # effect (and that agrees with what conceptually should be the case).
         # Sooo, we're passing the correct arguments up the chain, to reduce

@@ -3,13 +3,13 @@ import warnings
 
 from collections import defaultdict
 from flask_sqlalchemy import DefaultMeta, Model
+from flask_unchained.utils import deep_getattr
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm.interfaces import MapperProperty
 from typing import *
 
 from .types import McsArgs, McsInitArgs
-from .utils import deep_getattr
 
 
 class _ModelRegistry:

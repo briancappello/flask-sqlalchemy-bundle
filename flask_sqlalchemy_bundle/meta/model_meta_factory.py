@@ -1,5 +1,6 @@
 import os
 from flask_unchained.constants import TEST
+from flask_unchained.utils import deep_getattr
 from typing import *
 
 from .model_meta_options import (
@@ -20,7 +21,6 @@ from .model_meta_options import (
     MaterializedViewForMetaOption,
 )
 from .types import McsArgs
-from .utils import deep_getattr
 
 
 class ModelMetaFactory:
