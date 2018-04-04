@@ -11,9 +11,10 @@ from ..meta.model_registry import _model_registry
 
 
 class RegisterModelsHook(AppFactoryHook):
-    name = 'models'
-    priority = 10
     bundle_module_name = 'models'
+    name = 'models'
+    run_after = ['extensions']
+    run_before = ['services']
 
     def process_objects(self, app: Flask, all_discovered_models):
         # this hook is responsible for discovering models, which happens by
