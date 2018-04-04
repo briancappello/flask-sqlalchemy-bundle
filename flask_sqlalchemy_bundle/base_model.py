@@ -16,7 +16,6 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
     querying, saving, updating and deleting models.
     """
     __abstract__ = True
-    __table_args__ = {'extend_existing': True}
 
     class Meta:
         pk = 'id'
