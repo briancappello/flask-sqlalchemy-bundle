@@ -22,6 +22,10 @@ class ModelManager(SessionManager):
     def q(self) -> BaseQuery:
         return self.model.query
 
+    @property
+    def query(self) -> BaseQuery:
+        return self.model.query
+
     def create(self, commit=False, **kwargs) -> model:
         instance = self.model(**kwargs)
         self.save(instance, commit=commit)
