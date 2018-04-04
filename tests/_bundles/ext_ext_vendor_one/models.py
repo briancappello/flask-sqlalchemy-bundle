@@ -10,4 +10,5 @@ class OneUser(BaseOneUser):
 
 
 class OneRole(BaseOneRole):
-    pass
+    class Meta:
+        lazy_mapped = True

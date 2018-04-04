@@ -11,7 +11,7 @@ class TestModelMetaOptions:
                                  'os.getenv("FLASK_ENV") == "test"'
 
         assert meta.abstract is True
-        assert meta.lazy_mapped is True
+        assert meta.lazy_mapped is False
         assert meta.relationships is None
 
         assert meta._base_tablename is None
@@ -35,7 +35,7 @@ class TestModelMetaOptions:
         meta = Over._meta
         assert meta._testing_ == 'over'
         assert meta.abstract is False
-        assert meta.lazy_mapped is True
+        assert meta.lazy_mapped is False
         assert meta.relationships == {}
 
         assert meta._base_tablename is None
@@ -49,13 +49,13 @@ class TestModelMetaOptions:
 
         class ExtendsOver(Over):
             class Meta:
-                lazy_mapped = False
+                lazy_mapped = True
                 updated_at = 'extends'
 
         meta = ExtendsOver._meta
         assert meta._testing_ == 'over'
         assert meta.abstract is False
-        assert meta.lazy_mapped is False
+        assert meta.lazy_mapped is True
         assert meta.relationships == {}
 
         assert meta._base_tablename == 'over'
