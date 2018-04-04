@@ -44,7 +44,7 @@ class BaseModelMetaclass(DefaultMeta):
         if should_set_tablename(cls):
             cls.__tablename__ = snake_case(cls.__name__)
 
-        if not cls._meta.lazy_mapped:
+        if not cls._meta.abstract and not cls._meta.lazy_mapped:
             cls._pre_mcs_init()
             super().__init__(name, bases, clsdict)
             cls._post_mcs_init()
