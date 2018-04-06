@@ -30,7 +30,7 @@ setup(
         'flask-migrate>=2.1.1',
         'flask-unchained>=0.2.0',
         'flask-sqlalchemy>=2.3',
-        'py-yaml-fixtures>=0.1.0',
+        'py-yaml-fixtures>=0.1.1',
     ],
     extras_require={
         'dev': [
