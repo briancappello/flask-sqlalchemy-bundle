@@ -1,22 +1,8 @@
-import os
-
-from codecs import open
 from setuptools import setup, find_packages
 
 
-ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
-
-
-with open(os.path.join(ROOT_DIR, 'README.md'), encoding='utf-8') as f:
+with open('README.md', encoding='utf-8') as f:
     long_description = f.read()
-
-
-def read_requirements(filename):
-    def is_pkg(line):
-        return line and not line.startswith(('--', 'git', '#'))
-
-    with open(os.path.join(ROOT_DIR, filename), encoding='utf-8') as f:
-        return [line for line in f.read().splitlines() if is_pkg(line)]
 
 
 setup(
@@ -36,11 +22,24 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
     ],
-    packages=find_packages(),
-    install_requires=read_requirements('requirements.txt'),
-    python_requires='>=3.6',
+    packages=find_packages(exclude=['docs', 'tests']),
     include_package_data=True,
     zip_safe=False,
+    python_requires='>=3.6',
+    install_requires=[
+        'flask-migrate>=2.1.1',
+        'flask-unchained>=0.2.0',
+        'flask-sqlalchemy>=2.3',
+        'py-yaml-fixtures>=0.1.0',
+    ],
+    extras_require={
+        'dev': [
+            'coverage',
+            'pytest',
+            'pytest-flask',
+            'tox',
+        ],
+    },
     entry_points={
         'pytest11': [
             'flask_sqlalchemy_bundle = flask_sqlalchemy_bundle.pytest',
