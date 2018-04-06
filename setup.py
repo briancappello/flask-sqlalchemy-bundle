@@ -7,7 +7,7 @@ with open('README.md', encoding='utf-8') as f:
 
 setup(
     name='Flask SQLAlchemy Bundle',
-    version='0.1.0',
+    version='0.2.0',
     description='Adds SQLAlchemy and Alembic to Flask Unchained',
     long_description=long_description,
     url='https://github.com/briancappello/flask-sqlalchemy-bundle',
@@ -16,7 +16,9 @@ setup(
 
     # https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 3 - Alpha',
+        'Environment :: Web Environment',
+        'Framework :: Flask',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
