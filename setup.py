@@ -35,8 +35,10 @@ setup(
     extras_require={
         'dev': [
             'coverage',
+            'factory_boy',
             'pytest',
             'pytest-flask',
+            'psycopg2',
             'tox',
         ],
     },
