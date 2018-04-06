@@ -18,7 +18,7 @@ $ pip install flask_sqlalchemy_bundle
 # app/config.py
 from flask_unchained import AppConfig
 
-class BaseConfig(AppConfig):
+class Config(AppConfig):
     BUNDLES = [
         'flask_sqlalchemy_bundle',
         # ...
@@ -34,7 +34,7 @@ Flask SQLAlchemy Bundle is configured to work out-of-the-box using an SQLite dat
 import os
 from flask_unchained import AppConfig
 
-class BaseConfig(AppConfig):
+class Config(AppConfig):
     # ...
     SQLALCHEMY_DATABASE_URI = '{engine}://{user}:{pw}@{host}:{port}/{db}'.format(
         engine=os.getenv('FLASK_DATABASE_ENGINE', 'postgresql+psycopg2'),
@@ -44,10 +44,10 @@ class BaseConfig(AppConfig):
         port=os.getenv('FLASK_DATABASE_PORT', 5432),
         db=os.getenv('FLASK_DATABASE_NAME', 'flask_app'))
 
-class DevConfig(BaseConfig):
+class DevConfig:
     SQLALCHEMY_ECHO = True
 
-class TestConfig(BaseConfig):
+class TestConfig:
     SQLALCHEMY_DATABASE_URI = 'sqlite://'  # :memory:
 ```
 

@@ -6,7 +6,7 @@ def render_migration_item(type_, obj, autogen_context):
     return False
 
 
-class BaseConfig:
+class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     db_file = 'db/dev.sqlite'  # relative path to PROJECT_ROOT/db/dev.sqlite
@@ -23,17 +23,6 @@ class BaseConfig:
         'template_args': {'migration_variables': []},
     }
 
-class DevConfig(BaseConfig):
-    pass
 
-
-class ProdConfig(BaseConfig):
-    pass
-
-
-class StagingConfig(ProdConfig):
-    pass
-
-
-class TestConfig(BaseConfig):
+class TestConfig:
     SQLALCHEMY_DATABASE_URI = 'sqlite://'  # :memory:
