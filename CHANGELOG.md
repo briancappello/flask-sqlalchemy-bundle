@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.2.1 (unreleased)
+
+* bugfix: Query.get should accept a tuple (for composite primary keys)
+
 ## 0.2.0 (2018/04/06)
 
 * add ModelManager and SessionManager service classes

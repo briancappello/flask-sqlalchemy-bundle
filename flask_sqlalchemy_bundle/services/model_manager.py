@@ -38,7 +38,7 @@ class ModelManager(SessionManager):
         return instance
 
     def get(self, id) -> Union[None, model]:
-        return self.q.get(int(id))
+        return self.q.get(id)
 
     def get_or_create(self, **kwargs) -> Tuple[model, bool]:
         """
@@ -51,7 +51,7 @@ class ModelManager(SessionManager):
         return instance, False
 
     def get_by(self, **kwargs) -> Union[None, model]:
-        return self.q.filter_by(**kwargs).one_or_none()
+        return self.q.get_by(**kwargs)
 
     def find_all(self) -> List[model]:
         return self.q.all()
