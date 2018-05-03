@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.2.2 (unreleased)
+
+* fix `render_migration_item` when second argument is `None`
+
 ## 0.2.1 (2018/04/08)
 
 * bugfix: Query.get should accept a tuple (for composite primary keys)

@@ -1,7 +1,7 @@
 # import flask_sqlalchemy_bundle into generated migrations when needed
 # http://alembic.zzzcomputing.com/en/latest/autogenerate.html#affecting-the-rendering-of-types-themselves
 def render_migration_item(type_, obj, autogen_context):
-    if 'flask_sqlalchemy_bundle' in obj.__module__:
+    if obj is not None and 'flask_sqlalchemy_bundle' in obj.__module__:
         autogen_context.imports.add('import flask_sqlalchemy_bundle')
     return False
 
