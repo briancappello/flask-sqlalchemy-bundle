@@ -40,14 +40,14 @@ class ModelManager(SessionManager):
     def get(self, id) -> Union[None, model]:
         return self.q.get(id)
 
-    def get_or_create(self, **kwargs) -> Tuple[model, bool]:
+    def get_or_create(self, commit=False, **kwargs) -> Tuple[model, bool]:
         """
         :return: returns a tuple of the instance and a boolean flag specifying
         whether or not the instance was created
         """
         instance = self.get_by(**kwargs)
         if not instance:
-            return self.create(**kwargs), True
+            return self.create(commit=commit, **kwargs), True
         return instance, False
 
     def get_by(self, **kwargs) -> Union[None, model]:
