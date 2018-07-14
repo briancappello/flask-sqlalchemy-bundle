@@ -10,6 +10,7 @@ from ..base_model import BaseModel
 from ..base_query import BaseQuery
 from ..meta.base_model_metaclass import BaseModelMetaclass
 from ..meta.model_registry import _model_registry
+from ..validation import validates, ValidationError, ValidationErrors
 
 
 class SQLAlchemy(BaseSQLAlchemy):
@@ -32,6 +33,10 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.foreign_key = sqla.foreign_key
         self.hybrid_method = sqla.hybrid_method
         self.hybrid_property = sqla.hybrid_property
+
+        self.validates = validates
+        self.ValidationError = ValidationError
+        self.ValidationErrors = ValidationErrors
 
         self.attach_events = sqla.attach_events
         self.on = sqla.on
@@ -137,5 +142,6 @@ class SQLAlchemy(BaseSQLAlchemy):
                 name='Model',
                 metadata=metadata,
                 metaclass=make_model_class,
+                constructor=None,  # use the constructor declared on the base class
             )
         return super().make_declarative_base(model, metadata)

@@ -1,10 +1,16 @@
+import re
+
+from collections import defaultdict
 from flask_sqlalchemy.model import DefaultMeta, should_set_tablename
 from flask_unchained.string_utils import snake_case
 from flask_unchained.utils import deep_getattr
+from sqlalchemy import Column
 
 from .model_meta_factory import ModelMetaFactory
 from .model_registry import _model_registry
 from .types import McsArgs, McsInitArgs
+
+VALIDATOR_RE = re.compile(r'^validates?_(?P<column>\w+)')
 
 
 class BaseModelMetaclass(DefaultMeta):
@@ -12,13 +18,40 @@ class BaseModelMetaclass(DefaultMeta):
         mcs_args = McsArgs(mcs, name, bases, clsdict)
         _model_registry._ensure_correct_base_model(mcs_args)
 
-        model_meta_factory_class = deep_getattr(
+        ModelMetaFactoryClass = deep_getattr(
             clsdict, mcs_args.bases, '_meta_factory_class', ModelMetaFactory)
-        model_meta_factory: ModelMetaFactory = model_meta_factory_class()
+        model_meta_factory: ModelMetaFactory = ModelMetaFactoryClass()
         model_meta_factory._contribute_to_class(mcs_args)
 
         if model_meta_factory.abstract:
             return super().__new__(*mcs_args)
+
+        validators = deep_getattr(clsdict, mcs_args.bases, '__validators__',
+                                  defaultdict(list))
+        columns = {col_name: col for col_name, col in clsdict.items()
+                   if isinstance(col, Column)}
+        for col_name, col in columns.items():
+            if not col.name:
+                col.name = col_name
+            if col.info:
+                for v in col.info.get('validators', []):
+                    if v not in validators[col_name]:
+                        validators[col_name].append(v)
+
+        for attr_name, attr in clsdict.items():
+            validates = getattr(attr, '__validates__', None)
+            if validates and deep_getattr(clsdict, mcs_args.bases, validates):
+                if attr_name not in validators[attr.__validates__]:
+                    validators[attr.__validates__].append(attr_name)
+                continue
+
+            m = VALIDATOR_RE.match(attr_name)
+            column = m.groupdict()['column'] if m else None
+            if m and deep_getattr(clsdict, mcs_args.bases, column, None) is not None:
+                attr.__validates__ = column
+                if attr_name not in validators[column]:
+                    validators[column].append(attr_name)
+        clsdict['__validators__'] = validators
 
         _model_registry.register_new(mcs_args)
         return super().__new__(*mcs_args)
