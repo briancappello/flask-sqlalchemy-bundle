@@ -1,8 +1,10 @@
 # CHANGELOG
 
-## 0.2.2 (unreleased)
+## 0.3.0 (unreleased)
 
 * fix `render_migration_item` when second argument is `None`
+* add `commit` kwarg to `ModelManager.get_or_create`
+* add support for validation on sqlalchemy models
 
 ## 0.2.1 (2018/04/08)
 
