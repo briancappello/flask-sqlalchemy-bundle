@@ -7,7 +7,7 @@ with open('README.md', encoding='utf-8') as f:
 
 setup(
     name='Flask SQLAlchemy Bundle',
-    version='0.2.1',
+    version='0.3.0',
     description='Adds SQLAlchemy and Alembic to Flask Unchained',
     long_description=long_description,
     url='https://github.com/briancappello/flask-sqlalchemy-bundle',
