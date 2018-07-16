@@ -3,6 +3,7 @@ import inspect
 from collections import defaultdict
 from flask_sqlalchemy.model import Model as FlaskSQLAlchemyBaseModel
 from flask_unchained.string_utils import pluralize, title_case
+from flask_unchained import lazy_gettext as _
 from sqlalchemy.ext.declarative import declared_attr
 
 from .base_query import BaseQuery
@@ -100,7 +101,6 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
                 except ValidationError as e:
                     e.model = cls
                     e.column = name
-                    # FIXME: translations support
                     errors[name].append(str(e))
 
         if errors:
@@ -118,11 +118,16 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
                 if inspect.isclass(validator):
                     validator = validator()
                 rv.append(validator)
-        required = (col is not None and (
-                        (not col.primary_key and not col.nullable)
-                        or (col.info and col.info.get('required', False))))
-        if required:
-            rv.append(Required())
+
+        if col is not None:
+            not_null = not col.primary_key and not col.nullable
+            required_msg = col.info and col.info.get('required', None)
+            if not_null or required_msg:
+                if isinstance(required_msg, bool):
+                    required_msg = None
+                elif isinstance(required_msg, str):
+                    required_msg = _(required_msg)
+                rv.append(Required(required_msg))
         return rv
 
     def __setattr__(self, key, value):

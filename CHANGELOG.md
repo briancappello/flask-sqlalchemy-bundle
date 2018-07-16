@@ -3,6 +3,7 @@
 ## 0.3.1 (unreleased)
 
 * fix required validator
+* support using translations in validation error messages
 
 ## 0.3.0 (2018/07/14)
 
