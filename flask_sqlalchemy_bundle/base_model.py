@@ -127,7 +127,7 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
                     required_msg = None
                 elif isinstance(required_msg, str):
                     required_msg = _(required_msg)
-                rv.append(Required(required_msg))
+                rv.append(Required(required_msg or None))
         return rv
 
     def __setattr__(self, key, value):

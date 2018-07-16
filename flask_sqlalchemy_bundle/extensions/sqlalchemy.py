@@ -10,7 +10,8 @@ from ..base_model import BaseModel
 from ..base_query import BaseQuery
 from ..meta.base_model_metaclass import BaseModelMetaclass
 from ..meta.model_registry import _model_registry
-from ..validation import validates, ValidationError, ValidationErrors
+from ..validation import (
+    BaseValidator, Required, ValidationError, ValidationErrors, validates)
 
 
 class SQLAlchemy(BaseSQLAlchemy):
@@ -35,6 +36,8 @@ class SQLAlchemy(BaseSQLAlchemy):
         self.hybrid_property = sqla.hybrid_property
 
         self.validates = validates
+        self.BaseValidator = BaseValidator
+        self.Required = Required
         self.ValidationError = ValidationError
         self.ValidationErrors = ValidationErrors
 

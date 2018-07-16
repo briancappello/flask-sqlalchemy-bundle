@@ -4,6 +4,7 @@
 
 * fix required validator
 * support using translations in validation error messages
+* export the BaseValidator and Required classes on the extension
 
 ## 0.3.0 (2018/07/14)
 

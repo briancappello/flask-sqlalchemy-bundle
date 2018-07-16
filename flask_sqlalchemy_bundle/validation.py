@@ -1,5 +1,5 @@
-from flask_unchained import _
 from flask_unchained.string_utils import title_case
+from speaklater import _LazyString
 from typing import *
 
 
@@ -64,6 +64,9 @@ class Required(BaseValidator):
         return True
 
     def get_message(self, e: ValidationError):
-        if self.msg and isinstance(self.msg, str):
-            return self.msg
-        return f'{title_case(e.column)} is required'
+        if self.msg:
+            if isinstance(self.msg, str):
+                return self.msg
+            elif isinstance(self.msg, _LazyString):
+                return str(self.msg)
+        return f'{title_case(e.column)} is required.'
