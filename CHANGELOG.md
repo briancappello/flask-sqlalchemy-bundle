@@ -1,6 +1,10 @@
 # CHANGELOG
 
-## 0.3.0 (unreleased)
+## 0.3.1 (unreleased)
+
+* fix required validator
+
+## 0.3.0 (2018/07/14)
 
 * fix `render_migration_item` when second argument is `None`
 * add `commit` kwarg to `ModelManager.get_or_create`

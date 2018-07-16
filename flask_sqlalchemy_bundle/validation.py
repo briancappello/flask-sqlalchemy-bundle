@@ -58,7 +58,7 @@ class BaseValidator:
 class Required(BaseValidator):
     def __call__(self, value):
         super().__call__(value)
-        if not value:
+        if value is None or isinstance(value, str) and not value:
             raise ValidationError(validator=self)
         return True
 

@@ -118,7 +118,10 @@ class BaseModel(FlaskSQLAlchemyBaseModel):
                 if inspect.isclass(validator):
                     validator = validator()
                 rv.append(validator)
-        if col is not None and col.info and col.info.get('required', False):
+        required = (col is not None and (
+                        (not col.primary_key and not col.nullable)
+                        or (col.info and col.info.get('required', False))))
+        if required:
             rv.append(Required())
         return rv
 
